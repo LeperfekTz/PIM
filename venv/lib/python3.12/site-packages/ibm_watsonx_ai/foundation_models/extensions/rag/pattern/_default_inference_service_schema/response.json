@@ -1,0 +1,79 @@
+{
+    "application/json": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+            "choices": {
+                "title": "A list of chat completion choices",
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "index": {
+                            "type": "integer",
+                            "title": "The index of this result."
+                        },
+                        "message": {
+                            "title": "A message result.",
+                            "type": "object",
+                            "properties": {
+                                "role": {
+                                    "const": "assistant"
+                                },
+                                "delta": {
+                                    "title": "Information from event.",
+                                    "type": "object",
+                                    "properties": {
+                                        "content": {
+                                            "title": "Message content.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "content"
+                                    ]
+                                },
+                                "content": {
+                                    "title": "Message content.",
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "role"
+                            ]
+                        },
+                        "reference_documents": {
+                            "title": "Array of the reference documents.",
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "page_content": {
+                                        "title": "Content of the reference document",
+                                        "type": "string"
+                                    },
+                                    "metadata": {
+                                        "title": "Metadata of the reference document",
+                                        "type": "object"
+                                    }
+                                },
+                                "required": [
+                                    "page_content",
+                                    "metadata"
+                                ]
+                            }
+                        }
+                    },
+                    "required": [
+                        "index",
+                        "message",
+                        "reference_documents"
+                    ]
+                }
+            }
+        },
+        "required": [
+            "choices"
+        ]
+    }
+}

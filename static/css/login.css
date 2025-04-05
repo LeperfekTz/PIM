@@ -1,0 +1,97 @@
+/* Estilo base */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+/* Container centralizado */
+.chat-container {
+    background-color: #fff;
+    width: 100%;
+    max-width: 400px;
+    padding: 30px 25px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Título */
+.chat-header {
+    font-size: 22px;
+    font-weight: bold;
+    color: #fff;
+    background-color: #4a90e2;
+    text-align: center;
+    padding: 15px;
+    border-radius: 8px 8px 0 0;
+    margin: -30px -25px 20px -25px;
+}
+
+/* Estilo do formulário */
+.chat-input {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.chat-input input {
+    padding: 12px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    transition: 0.3s;
+}
+
+.chat-input input:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 5px rgba(74, 144, 226, 0.5);
+}
+
+/* Botão */
+.chat-input button {
+    padding: 12px;
+    font-size: 16px;
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.chat-input button:hover {
+    background-color: #357ab8;
+}
+
+/* Rodapé com links */
+.chat-footer {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+.chat-footer a {
+    color: #4a90e2;
+    text-decoration: none;
+}
+
+.chat-footer a:hover {
+    text-decoration: underline;
+}
+
+/* Mensagens de erro/alerta */
+.mensagem.erro {
+    background-color: #ffe0e0;
+    color: #b00020;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+}

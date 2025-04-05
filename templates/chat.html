@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>My Chat</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/chat.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">My Chat AI</div>
+
+      <div class="chat-messages" id="resposta"></div>
+
+      <div class="chat-input">
+        <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
+        <button onclick="enviarMensagem()">Enviar</button>
+      </div>
+    </div>
+
+    <script>
+      function enviarMensagem() {
+        const mensagemInput = document.getElementById('mensagem')
+        const respostaDiv = document.getElementById('resposta')
+        const mensagem = mensagemInput.value
+
+        if (mensagem.trim() === '') return
+
+        const msgUser = document.createElement('div')
+        msgUser.className = 'mensagem usuario'
+        msgUser.innerText = mensagem
+        respostaDiv.appendChild(msgUser)
+
+        fetch('/executar-api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensagem }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            try {
+              const respostaFinal =
+                data.resposta.outputs[0].outputs[0].outputs.message.message
+              const msgBot = document.createElement('div')
+              msgBot.className = 'mensagem bot'
+              msgBot.innerText = respostaFinal
+              respostaDiv.appendChild(msgBot)
+              respostaDiv.scrollTop = respostaDiv.scrollHeight
+            } catch (error) {
+              respostaDiv.innerHTML +=
+                "<div class='mensagem erro'>Erro ao interpretar resposta.</div>"
+              console.error('Resposta completa:', data)
+            }
+          })
+          .catch((error) => {
+            respostaDiv.innerHTML +=
+              "<div class='mensagem erro'>Erro na requisição.</div>"
+          })
+
+        mensagemInput.value = ''
+      }
+
+      // Escuta o Enter no campo de mensagem
+      document
+        .getElementById('mensagem')
+        .addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            enviarMensagem()
+          }
+        })
+    </script>
+  </body>
+</html>

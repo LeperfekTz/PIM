@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: graph-retriever
+Version: 0.6.1
+Summary: Retriever combining unstructured similarity and structured document traversal.
+Project-URL: Homepage, https://datastax.github.io/graph-rag
+Project-URL: GitHub, https://github.com/datastax/graph-rag
+Project-URL: Bug Reports, https://github.com/datastax/graph-rag/issues
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: RAG,graph RAG
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: immutabledict>=4.2.1
+Requires-Dist: numpy>=1.26.4
+Requires-Dist: pytest>=8.3.4
+Requires-Dist: typing-extensions>=4.12.2
+Provides-Extra: simsimd
+Requires-Dist: simsimd>=6.2.1; extra == 'simsimd'
+Provides-Extra: testing
+Requires-Dist: pytest>=8.3.4; extra == 'testing'
+Description-Content-Type: text/markdown
+
+# Graph Retrievers
+
+Retrievers combining vector (similarity search over unstructured data) and graph
+(structured relationships).

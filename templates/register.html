@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">Cadastro</div>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="mensagem erro">
+                {% for msg in messages %}
+                    {{ msg }}
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        <form class="chat-input" method="POST">
+            <input type="text" name="nome" placeholder="nome" required>
+            <input type="email" name="email" placeholder="E-mail" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+            <button type="submit">Cadastrar</button>
+        </form>
+
+        <div class="chat-footer">
+            <a href="{{ url_for('login') }}">Voltar para login</a>
+        </div>
+    </div>
+</body>
+</html>

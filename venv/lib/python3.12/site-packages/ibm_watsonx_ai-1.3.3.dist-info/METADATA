@@ -1,0 +1,125 @@
+Metadata-Version: 2.4
+Name: ibm_watsonx_ai
+Version: 1.3.3
+Summary: IBM watsonx.ai API Client
+Author: IBM
+Maintainer-email: Łukasz Ćmielowski <lukasz.cmielowski@pl.ibm.com>, Dorota Lączak <dorota.laczak@ibm.com>
+License: BSD-3-Clause
+Project-URL: Homepage, https://ibm.github.io/watsonx-ai-python-sdk
+Keywords: watsonx.ai,machine learning,IBM,Bluemix,client,API,IBM Cloud
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Internet
+Requires-Python: <3.13,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: requests
+Requires-Dist: httpx<0.29,>=0.27
+Requires-Dist: urllib3
+Requires-Dist: pandas<2.3.0,>=0.24.2
+Requires-Dist: certifi
+Requires-Dist: lomond
+Requires-Dist: tabulate
+Requires-Dist: packaging
+Requires-Dist: ibm-cos-sdk<2.15.0,>=2.12.0
+Provides-Extra: rag
+Requires-Dist: langchain-core<0.4,>=0.3; extra == "rag"
+Requires-Dist: langchain<0.4,>=0.3; extra == "rag"
+Requires-Dist: langchain-community<0.4,>=0.3; extra == "rag"
+Requires-Dist: langchain-elasticsearch==0.3.0; extra == "rag"
+Requires-Dist: langchain-ibm<0.4,>=0.3; extra == "rag"
+Requires-Dist: langchain-chroma==0.1.4; extra == "rag"
+Requires-Dist: langchain-milvus==0.1.7; extra == "rag"
+Requires-Dist: grpcio>=1.54.3; extra == "rag"
+Requires-Dist: python-docx==1.1.2; extra == "rag"
+Requires-Dist: pypdf==4.2.0; extra == "rag"
+Requires-Dist: beautifulsoup4==4.12.3; extra == "rag"
+Requires-Dist: markdown==3.4.1; extra == "rag"
+Provides-Extra: fl-rt23-1-py3-10
+Requires-Dist: tensorflow==2.12.0; extra == "fl-rt23-1-py3-10"
+Requires-Dist: scikit-learn==1.1.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: torch==2.0.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: numpy==1.23.5; extra == "fl-rt23-1-py3-10"
+Requires-Dist: pandas==1.5.3; extra == "fl-rt23-1-py3-10"
+Requires-Dist: pytest==6.2.5; extra == "fl-rt23-1-py3-10"
+Requires-Dist: pyYAML==6.0.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: parse==1.19.0; extra == "fl-rt23-1-py3-10"
+Requires-Dist: websockets==10.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: requests==2.32.3; extra == "fl-rt23-1-py3-10"
+Requires-Dist: scipy==1.10.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: environs==9.5.0; extra == "fl-rt23-1-py3-10"
+Requires-Dist: pathlib2==2.3.6; extra == "fl-rt23-1-py3-10"
+Requires-Dist: diffprivlib==0.5.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: numcompress==0.1.2; extra == "fl-rt23-1-py3-10"
+Requires-Dist: psutil; extra == "fl-rt23-1-py3-10"
+Requires-Dist: setproctitle; extra == "fl-rt23-1-py3-10"
+Requires-Dist: tabulate==0.8.9; extra == "fl-rt23-1-py3-10"
+Requires-Dist: lz4; extra == "fl-rt23-1-py3-10"
+Requires-Dist: gym; extra == "fl-rt23-1-py3-10"
+Requires-Dist: image==1.5.33; extra == "fl-rt23-1-py3-10"
+Requires-Dist: ddsketch==2.0.4; extra == "fl-rt23-1-py3-10"
+Requires-Dist: skorch==0.12.0; extra == "fl-rt23-1-py3-10"
+Requires-Dist: protobuf==4.22.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: GPUtil; extra == "fl-rt23-1-py3-10"
+Requires-Dist: joblib==1.1.1; extra == "fl-rt23-1-py3-10"
+Requires-Dist: skops==0.9.0; extra == "fl-rt23-1-py3-10"
+Requires-Dist: msgpack==1.0.7; extra == "fl-rt23-1-py3-10"
+Requires-Dist: msgpack-numpy==0.4.8; extra == "fl-rt23-1-py3-10"
+Requires-Dist: cryptography==42.0.5; extra == "fl-rt23-1-py3-10"
+Provides-Extra: fl-rt24-1-py3-11
+Requires-Dist: tensorflow==2.14.1; extra == "fl-rt24-1-py3-11"
+Requires-Dist: scikit-learn==1.3.0; extra == "fl-rt24-1-py3-11"
+Requires-Dist: torch==2.1.2; extra == "fl-rt24-1-py3-11"
+Requires-Dist: numpy==1.26.4; extra == "fl-rt24-1-py3-11"
+Requires-Dist: pandas==2.1.4; extra == "fl-rt24-1-py3-11"
+Requires-Dist: pytest==6.2.5; extra == "fl-rt24-1-py3-11"
+Requires-Dist: pyYAML==6.0.1; extra == "fl-rt24-1-py3-11"
+Requires-Dist: parse==1.19.0; extra == "fl-rt24-1-py3-11"
+Requires-Dist: websockets==10.1; extra == "fl-rt24-1-py3-11"
+Requires-Dist: requests==2.32.3; extra == "fl-rt24-1-py3-11"
+Requires-Dist: scipy==1.11.4; extra == "fl-rt24-1-py3-11"
+Requires-Dist: environs==9.5.0; extra == "fl-rt24-1-py3-11"
+Requires-Dist: pathlib2==2.3.6; extra == "fl-rt24-1-py3-11"
+Requires-Dist: diffprivlib==0.5.1; extra == "fl-rt24-1-py3-11"
+Requires-Dist: numcompress==0.1.2; extra == "fl-rt24-1-py3-11"
+Requires-Dist: psutil; extra == "fl-rt24-1-py3-11"
+Requires-Dist: setproctitle; extra == "fl-rt24-1-py3-11"
+Requires-Dist: tabulate==0.8.9; extra == "fl-rt24-1-py3-11"
+Requires-Dist: lz4; extra == "fl-rt24-1-py3-11"
+Requires-Dist: gym; extra == "fl-rt24-1-py3-11"
+Requires-Dist: image==1.5.33; extra == "fl-rt24-1-py3-11"
+Requires-Dist: ddsketch==2.0.4; extra == "fl-rt24-1-py3-11"
+Requires-Dist: skorch==0.12.0; extra == "fl-rt24-1-py3-11"
+Requires-Dist: protobuf==4.22.1; extra == "fl-rt24-1-py3-11"
+Requires-Dist: GPUtil; extra == "fl-rt24-1-py3-11"
+Requires-Dist: joblib==1.3.2; extra == "fl-rt24-1-py3-11"
+Requires-Dist: skops==0.9.0; extra == "fl-rt24-1-py3-11"
+Requires-Dist: msgpack==1.0.7; extra == "fl-rt24-1-py3-11"
+Requires-Dist: msgpack-numpy==0.4.8; extra == "fl-rt24-1-py3-11"
+Requires-Dist: cryptography==42.0.5; extra == "fl-rt24-1-py3-11"
+Provides-Extra: fl-crypto
+Requires-Dist: pyhelayers==1.5.0.3; extra == "fl-crypto"
+Provides-Extra: fl-crypto-rt24-1
+Requires-Dist: pyhelayers==1.5.3.1; extra == "fl-crypto-rt24-1"
+
+******************************************
+## Welcome to `ibm-watsonx-ai`
+******************************************
+
+``ibm-watsonx-ai`` is a library that allows to work with watsonx.ai service on [IBM Cloud](https://console.bluemix.net/catalog/services/machine-learning) and
+IBM Cloud for Data. Train, test and deploy your models as APIs for application development, share with colleagues using this python library.
+
+### [Package documentation](https://ibm.github.io/watsonx-ai-python-sdk)
+==========================================

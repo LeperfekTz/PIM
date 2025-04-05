@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">Entrar</div>
+        {% if erro %}
+        <div class="mensagem erro">{{ erro }}</div>
+        {% endif %}
+        <form class="chat-input" action="/login" method="POST">
+            <input type="email" name="email" placeholder="E-mail" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+            <button type="submit">Entrar</button>
+        </form>
+        <div class="chat-footer">
+            <p>Não tem uma conta? <a href="/register">Criar conta</a></p>
+            <p><a href="/reset">Esqueceu a senha?</a></p>
+        </div>
+    </div>
+</body>
+</html>
