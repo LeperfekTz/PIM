@@ -1,16 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from pymongo import MongoClient
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 import requests
 
-# Carrega as variáveis do .env
+# Carrega variáveis do .env
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+app.config['SESSION_TYPE'] = 'filesystem'
 
 # Configuração do Mail
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -22,11 +24,13 @@ app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 mail = Mail(app)
 s = URLSafeTimedSerializer(app.secret_key)
 
-# Conexão com MongoDB
+# MongoDB
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client['PIM']
 usuarios_collection = db['PIM']
+conversas_collection = db['conversas']
 
+# Rotas
 @app.route('/')
 def index():
     return render_template('login.html')
@@ -39,6 +43,7 @@ def login():
         user = usuarios_collection.find_one({'email': email, 'senha': senha})
 
         if user:
+            session['email'] = email
             return redirect('/chat')
         else:
             flash('Usuário ou senha inválidos')
@@ -48,7 +53,13 @@ def login():
 
 @app.route('/chat')
 def chat():
+    if 'email' not in session:
+        return redirect(url_for('login'))
     return render_template('chat.html')
+
+@app.route('/readme')
+def readme():
+    return render_template('readme.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -94,7 +105,7 @@ def reset():
 @app.route('/redefinir-senha/<token>', methods=['GET', 'POST'])
 def redefinir_senha(token):
     try:
-        email = s.loads(token, salt='reset-senha', max_age=3600)  # expira em 1 hora
+        email = s.loads(token, salt='reset-senha', max_age=3600)
     except SignatureExpired:
         flash('O link expirou. Solicite uma nova redefinição.')
         return redirect(url_for('reset'))
@@ -112,10 +123,13 @@ def redefinir_senha(token):
 
 @app.route('/executar-api', methods=['POST'])
 def executar_api():
+    if 'email' not in session:
+        return jsonify({"erro": "Usuário não autenticado."}), 403
+
     dados_recebidos = request.get_json()
 
     if not dados_recebidos or "mensagem" not in dados_recebidos:
-        return jsonify({"erro": "Requisição inválida. Campo 'mensagem' é obrigatório."}), 400
+        return jsonify({"erro": "Campo 'mensagem' é obrigatório."}), 400
 
     url = "http://127.0.0.1:7860/api/v1/run/2f745828-aa27-49d8-afd7-c2c88683aa92"
 
@@ -132,18 +146,24 @@ def executar_api():
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
-
-        # Verifica se a resposta está no formato esperado
         resposta_json = response.json()
+
+        # Extrair a resposta final
+        mensagem_resposta = resposta_json['outputs'][0]['outputs'][0]['outputs']['message']['message']
+
+        # Salvar conversa
+        conversas_collection.insert_one({
+            "email": session['email'],
+            "mensagem": dados_recebidos.get("mensagem"),
+            "resposta": mensagem_resposta,
+            "timestamp": datetime.utcnow()
+        })
+
         return jsonify({"resposta": resposta_json})
 
     except requests.exceptions.HTTPError as e:
         erro_resposta = e.response.text if e.response else "Sem resposta"
-        return jsonify({
-            "erro": f"Erro HTTP: {str(e)}",
-            "detalhes": erro_resposta
-        }), 500
-
+        return jsonify({"erro": f"Erro HTTP: {str(e)}", "detalhes": erro_resposta}), 500
     except requests.exceptions.RequestException as e:
         return jsonify({"erro": f"Erro na requisição: {str(e)}"}), 500
 
