@@ -112,9 +112,12 @@ def redefinir_senha(token):
 
 @app.route('/executar-api', methods=['POST'])
 def executar_api():
-    dados_recebidos = request.json
+    dados_recebidos = request.get_json()
 
-    url = "http://127.0.0.1:7860/api/v1/run/9d9c12b8-e33b-45cc-a738-81f28ac0e7cc"
+    if not dados_recebidos or "mensagem" not in dados_recebidos:
+        return jsonify({"erro": "Requisição inválida. Campo 'mensagem' é obrigatório."}), 400
+
+    url = "http://127.0.0.1:7860/api/v1/run/895c877c-aacd-4499-b298-12ad521b492f"
 
     payload = {
         "input_value": dados_recebidos.get("mensagem", "Mensagem padrão"),
@@ -129,10 +132,21 @@ def executar_api():
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
-        return jsonify({"resposta": response.json()})
+
+        # Verifica se a resposta está no formato esperado
+        resposta_json = response.json()
+        return jsonify({"resposta": resposta_json})
+
+    except requests.exceptions.HTTPError as e:
+        erro_resposta = e.response.text if e.response else "Sem resposta"
+        return jsonify({
+            "erro": f"Erro HTTP: {str(e)}",
+            "detalhes": erro_resposta
+        }), 500
 
     except requests.exceptions.RequestException as e:
         return jsonify({"erro": f"Erro na requisição: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

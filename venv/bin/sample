@@ -1,4 +1,4 @@
-#!/home/leperfekt/Documents/PIM_Chat_bot/venv/bin/python3
+#!/home/leperfekt/Documents/PIM/venv/bin/python3
 # -*- coding: utf-8 -*-
 import sys
 from sample import main

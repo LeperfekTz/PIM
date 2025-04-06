@@ -1,4 +1,4 @@
-#!/home/leperfekt/Documents/PIM_Chat_bot/venv/bin/python3
+#!/home/leperfekt/Documents/PIM/venv/bin/python3
 """A command line tool for extracting text and images from PDF and
 output it to plain text, html, xml or tags.
 """
