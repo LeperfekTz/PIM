@@ -42,7 +42,7 @@ form input[type="email"] {
 form button {
   width: 100%;
   padding: 12px;
-  background-color: #007bff;
+  background-color: #303030;
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -52,7 +52,7 @@ form button {
 }
 
 form button:hover {
-  background-color: #0056b3;
+  background-color: #303030;
 }
 
 .chat-footer {
@@ -67,7 +67,7 @@ form button:hover {
 }
 
 .chat-footer a:hover {
-  color: #0056b3;
+  color: #303030;
 }
 
 .mensagem.erro {
