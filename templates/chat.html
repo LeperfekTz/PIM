@@ -38,7 +38,6 @@
         </div>
       </div>
     </div>
-
     <script>
       function enviarMensagem() {
         const mensagemInput = document.getElementById('mensagem')
@@ -52,6 +51,12 @@
         msgUser.innerText = mensagem
         respostaDiv.appendChild(msgUser)
 
+        const msgDigitando = document.createElement('div')
+        msgDigitando.className = 'mensagem bot digitando'
+        msgDigitando.innerText = 'IA está digitando'
+        respostaDiv.appendChild(msgDigitando)
+        respostaDiv.scrollTop = respostaDiv.scrollHeight
+
         fetch('/executar-api', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -59,6 +64,8 @@
         })
           .then((response) => response.json())
           .then((data) => {
+            msgDigitando.remove() // remove a animação
+
             try {
               const respostaFinal =
                 data.resposta.outputs[0].outputs[0].outputs.message.message
@@ -74,6 +81,7 @@
             }
           })
           .catch((error) => {
+            msgDigitando.remove()
             respostaDiv.innerHTML +=
               "<div class='mensagem erro'>Erro na requisição.</div>"
           })

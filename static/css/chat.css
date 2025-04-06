@@ -20,7 +20,7 @@ body {
     width: 100%;
     max-width: 90%;
     height: 90%;
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(24px);
     background: rgba(0, 0, 0, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
@@ -202,6 +202,38 @@ body {
 
     .chat-container {
         height: 100%;
+    }
+}
+
+
+/* Animação de digitação da IA */
+.mensagem.bot.digitando {
+    position: relative;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.mensagem.bot.digitando::after {
+    content: '';
+    display: inline-block;
+    width: 1em;
+    vertical-align: bottom;
+    animation: digitandoAnimacao 1s steps(3, end) infinite;
+    overflow: hidden;
+}
+
+@keyframes digitandoAnimacao {
+    0% {
+        content: '';
+    }
+    33% {
+        content: '.';
+    }
+    66% {
+        content: '..';
+    }
+    100% {
+        content: '...';
     }
 }
 

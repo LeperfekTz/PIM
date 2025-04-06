@@ -3,49 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>README - ChatBot Web</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #222;
-      margin: 0;
-      padding: 2rem;
-      line-height: 1.6;
-      color: #fff;
-    }
-
-    h1, h2 {
-      color: #fff;
-    }
-
-    code, pre {
-      background: #444;
-      padding: 0.2rem 0.5rem;
-      border-radius: 5px;
-      font-family: monospace;
-    }
-
-    pre {
-      padding: 1rem;
-      overflow-x: auto;
-    }
-
-    ul {
-      margin-top: 0.5rem;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      background: #333;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    }
-
-    .tag {
-      font-size: 1.5rem;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/readme.css') }}">
 </head>
 <body>
   <div class="container">
@@ -85,8 +43,11 @@
       <li><strong>Clone o repositório:</strong></li>
     </ol>
     <pre><code>git clone https://github.com/LeperfekTz/PIM.git</code></pre>
-        <pre><code>cd PIM</code></pre>
+    <pre><code>cd PIM</code></pre>
 
+    <hr>
+
+    <button onclick="window.location.href='{{ url_for('chat') }}'">Voltar para Chat</button>
   </div>
 </body>
 </html>
