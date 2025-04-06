@@ -1,0 +1,2 @@
+langflow run - start server
+uv pip install langflow - instala o server
