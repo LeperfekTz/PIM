@@ -117,7 +117,7 @@ def executar_api():
     if not dados_recebidos or "mensagem" not in dados_recebidos:
         return jsonify({"erro": "Requisição inválida. Campo 'mensagem' é obrigatório."}), 400
 
-    url = "http://127.0.0.1:7860/api/v1/run/895c877c-aacd-4499-b298-12ad521b492f"
+    url = "http://127.0.0.1:7860/api/v1/run/2f745828-aa27-49d8-afd7-c2c88683aa92"
 
     payload = {
         "input_value": dados_recebidos.get("mensagem", "Mensagem padrão"),

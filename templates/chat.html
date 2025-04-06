@@ -13,14 +13,29 @@
     />
   </head>
   <body>
-    <div class="chat-container">
-      <div class="chat-header">My Chat AI</div>
+    <div class="main-container">
+      <div class="sidebar">
+        <h2>Menu</h2>
+        <ul>
+          <li><a href="#">Início</a></li>
+          <li><a href="#">Conversas</a></li>
+          <li><a href="#">Informações</a></li>
+        </ul>
+      </div>
 
-      <div class="chat-messages" id="resposta"></div>
+      <div class="chat-container">
+        <div class="chat-header">My Chat AI</div>
 
-      <div class="chat-input">
-        <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
-        <button onclick="enviarMensagem()">Enviar</button>
+        <div class="chat-messages" id="resposta"></div>
+
+        <div class="chat-input">
+          <input
+            type="text"
+            id="mensagem"
+            placeholder="Digite sua mensagem..."
+          />
+          <button onclick="enviarMensagem()">Enviar</button>
+        </div>
       </div>
     </div>
 
