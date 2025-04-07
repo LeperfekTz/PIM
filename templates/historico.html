@@ -1,0 +1,36 @@
+<!-- templates/historico.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Histórico</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/historico.css') }}"
+    />
+  </head>
+  <body>
+    <div class="main-container">
+      <div class="sidebar">
+        <h2>Menu</h2>
+        <ul>
+          <li><a href="{{ url_for('chat') }}">Início</a></li>
+          <li><a href="{{ url_for('historico') }}">Histórico</a></li>
+          <li><a href="{{ url_for('readme') }}">Informações</a></li>
+        </ul>
+      </div>
+
+      <div class="chat-container">
+        <div class="chat-header">Histórico de Conversas</div>
+        <div class="chat-messages">
+          {% if mensagens %} {% for item in mensagens %}
+          <div class="mensagem usuario">{{ item.usuario }}</div>
+          <div class="mensagem bot">{{ item.ia }}</div>
+          {% endfor %} {% else %}
+          <p>Nenhuma conversa registrada ainda.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

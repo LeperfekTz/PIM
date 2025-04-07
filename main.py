@@ -51,11 +51,68 @@ def login():
 
     return render_template('login.html')
 
+import uuid
+
 @app.route('/chat')
 def chat():
     if 'email' not in session:
         return redirect(url_for('login'))
+
+    # Gerar novo chat_id e salvar na sessão
+    session['chat_id'] = str(uuid.uuid4())
+
+    # Criar nova sessão de chat no MongoDB
+    conversas_collection.insert_one({
+        "email": session['email'],
+        "chat_id": session['chat_id'],
+        "mensagens": [],
+        "criado_em": datetime.utcnow()
+    })
+
     return render_template('chat.html')
+
+@app.route('/chats-anteriores')
+def chats_anteriores():
+    if 'email' not in session:
+        return redirect(url_for('login'))
+
+    chats = conversas_collection.find({'email': session['email']}).sort('criado_em', -1)
+    return render_template('chats_anteriores.html', chats=chats)
+
+@app.route('/chat/<chat_id>')
+def ver_chat(chat_id):
+    if 'email' not in session:
+        return redirect(url_for('login'))
+
+    chat = conversas_collection.find_one({'chat_id': chat_id, 'email': session['email']})
+    if not chat:
+        flash('Chat não encontrado.')
+        return redirect(url_for('chats_anteriores'))
+
+    return render_template('chat_detalhe.html', mensagens=chat['mensagens'])
+
+
+
+@app.route('/historico')
+def historico():
+    if 'email' not in session or 'chat_id' not in session:
+        return redirect(url_for('login'))
+
+    conversa = conversas_collection.find_one({
+        "email": session["email"],
+        "chat_id": session["chat_id"]
+    })
+
+    mensagens = []
+    if conversa and "mensagens" in conversa:
+        for item in conversa["mensagens"]:
+            mensagens.append({
+                "usuario": item.get("pergunta", "Pergunta não encontrada"),
+                "ia": item.get("resposta", "Sem resposta da IA")
+            })
+
+    return render_template("historico.html", mensagens=mensagens)
+
 
 @app.route('/readme')
 def readme():
@@ -122,20 +179,50 @@ def redefinir_senha(token):
 
     return render_template('reset_pass.html')
 
+
 @app.route('/executar-api', methods=['POST'])
 def executar_api():
-    if 'email' not in session:
-        return jsonify({"erro": "Usuário não autenticado."}), 403
+    if 'email' not in session or 'chat_id' not in session:
+        return jsonify({"erro": "Usuário não autenticado ou chat_id ausente."}), 403
 
     dados_recebidos = request.get_json()
-
     if not dados_recebidos or "mensagem" not in dados_recebidos:
         return jsonify({"erro": "Campo 'mensagem' é obrigatório."}), 400
 
-    url = "http://127.0.0.1:7860/api/v1/run/2f745828-aa27-49d8-afd7-c2c88683aa92"
+    url = os.getenv('url')
+
+    # PROMPT BASE usado só no início da conversa
+    prompt_base = (
+        "Você é uma IA de suporte técnico especializada em hardware e software.\n"
+        "Seu objetivo é ajudar o usuário a identificar e resolver problemas com computadores, periféricos, impressoras, HDs, SSDs, Windows, drivers, instalação de programas, travamentos, lentidão, erros de inicialização, etc.\n\n"
+        "Estilo de conversa:\n"
+        "Fale como uma pessoa real e atenciosa, sem parecer um robô.\n"
+        "Seja simpático, direto e profissional, como um técnico experiente que explica tudo numa boa.\n"
+        "Converse com o usuário. Pergunte, ouça (analise a resposta), explique.\n"
+        "Evite exageros como emojis em excesso ou frases forçadas. Use só quando for natural.\n"
+        "Traga soluções de forma clara, passo a passo, sem jargões técnicos desnecessários.\n"
+        "Quando houver mais de uma causa possível, comece pelas mais comuns.\n"
+        "Sempre busque entender o que a pessoa já tentou e o contexto antes de sugerir algo.\n"
+        "Use palavras fáceis e busque colocar explicação, pessoas que não sabem nada usarão você.\n\n"
+    )
+
+    # Montar contexto com histórico da conversa
+    historico = conversas_collection.find_one({
+        "chat_id": session["chat_id"],
+        "email": session["email"]
+    })
+
+    contexto = prompt_base
+
+    if historico and "mensagens" in historico:
+        for msg in historico["mensagens"][-5:]:  # Limita a 5 interações anteriores
+            contexto += f"Usuário: {msg['pergunta']}\nIA: {msg['resposta']}\n"
+
+    # Adiciona a nova pergunta
+    contexto += f"Usuário: {dados_recebidos['mensagem']}\nIA:"
 
     payload = {
-        "input_value": dados_recebidos.get("mensagem", "Mensagem padrão"),
+        "input_value": contexto,
         "output_type": "chat",
         "input_type": "chat"
     }
@@ -149,18 +236,23 @@ def executar_api():
         response.raise_for_status()
         resposta_json = response.json()
 
-        # Extrair a resposta final
+        # Extrai a resposta final do modelo
         mensagem_resposta = resposta_json['outputs'][0]['outputs'][0]['outputs']['message']['message']
 
-        # Salvar conversa
-        conversas_collection.insert_one({
-            "email": session['email'],
-            "mensagem": dados_recebidos.get("mensagem"),
-            "resposta": mensagem_resposta,
-            "timestamp": datetime.utcnow()
-        })
+        # Atualiza o histórico no banco de dados
+        conversas_collection.update_one(
+            {"chat_id": session["chat_id"], "email": session["email"]},
+            {"$push": {
+                "mensagens": {
+                    "pergunta": dados_recebidos["mensagem"],
+                    "resposta": mensagem_resposta,
+                    "timestamp": datetime.utcnow()
+                }
+            }},
+            upsert=True
+        )
 
-        return jsonify({"resposta": resposta_json})
+        return jsonify({"resposta": mensagem_resposta})
 
     except requests.exceptions.HTTPError as e:
         erro_resposta = e.response.text if e.response else "Sem resposta"

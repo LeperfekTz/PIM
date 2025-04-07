@@ -1,3 +1,16 @@
+.mensagem.usuario {
+  background-color: #666;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+}
+
+.mensagem.bot {
+  background-color: #666;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+}
 * {
     margin: 0;
     padding: 0;
@@ -225,6 +238,8 @@ body {
 @keyframes digitandoAnimacao {
     0% {
         content: '';
+    background-color: #333;
+    color: #666;
     }
     33% {
         content: '.';

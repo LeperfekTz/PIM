@@ -6,18 +6,19 @@
 
 body {
   font-family: 'Roboto', sans-serif;
-  background-color: #f4f4f4;
+  background-color: #222;
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  color: #ddd;
 }
 
 .chat-container {
-  background-color: #ffffff;
+  background-color: #333;
   padding: 30px 40px;
   border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
   width: 100%;
   max-width: 400px;
   text-align: center;
@@ -27,23 +28,25 @@ body {
   font-size: 24px;
   font-weight: bold;
   margin-bottom: 25px;
-  color: #333;
+  color: #eee;
 }
 
 form input[type="email"] {
   width: 100%;
   padding: 12px;
   margin-bottom: 20px;
-  border: 1px solid #ccc;
+  border: 1px solid #555;
   border-radius: 6px;
   font-size: 16px;
+  background-color: #444;
+  color: #eee;
 }
 
 form button {
   width: 100%;
   padding: 12px;
-  background-color: #303030;
-  color: #ffffff;
+  background-color: #555;
+  color: #eee;
   border: none;
   border-radius: 6px;
   font-size: 16px;
@@ -52,7 +55,7 @@ form button {
 }
 
 form button:hover {
-  background-color: #303030;
+  background-color: #666;
 }
 
 .chat-footer {
@@ -67,7 +70,7 @@ form button:hover {
 }
 
 .chat-footer a:hover {
-  color: #303030;
+  color: #666;
 }
 
 .mensagem.erro {
@@ -79,3 +82,5 @@ form button:hover {
   border-radius: 6px;
   font-size: 14px;
 }
+
+
