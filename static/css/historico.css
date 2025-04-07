@@ -1,12 +1,12 @@
 .mensagem.usuario {
-  background-color: #666;
+  background-color: #999;
   padding: 10px;
   margin: 5px 0;
   border-radius: 8px;
 }
 
 .mensagem.bot {
-  background-color: #666;
+  background-color: #999;
   padding: 10px;
   margin: 5px 0;
   border-radius: 8px;
@@ -85,7 +85,7 @@ body {
 
 /* Para indicar o botão ativo (opcional) */
 .sidebar a.active {
-    background-color: #666;
+    background-color: #999;
     font-weight: bold;
 }
 
@@ -239,7 +239,7 @@ body {
     0% {
         content: '';
     background-color: #333;
-    color: #666;
+    color: #999;
     }
     33% {
         content: '.';
@@ -293,11 +293,11 @@ body {
 }
 
 .mensagem.usuario {
-    background-color: #666;
+    background-color: #999;
 }
 
 .mensagem.bot {
-    background-color: #666;
+    background-color: #999;
 }
 
 

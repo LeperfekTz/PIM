@@ -58,6 +58,15 @@ def chat():
     if 'email' not in session:
         return redirect(url_for('login'))
 
+    # Verifica e remove último chat vazio (sem mensagens)
+    ultimo_chat = conversas_collection.find_one(
+        {"email": session["email"]},
+        sort=[("criado_em", -1)]
+    )
+
+    if ultimo_chat and not ultimo_chat.get("mensagens"):
+        conversas_collection.delete_one({"_id": ultimo_chat["_id"]})
+
     # Gerar novo chat_id e salvar na sessão
     session['chat_id'] = str(uuid.uuid4())
 
@@ -70,6 +79,7 @@ def chat():
     })
 
     return render_template('chat.html')
+
 
 
 @app.route('/historico')
