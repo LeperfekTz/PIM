@@ -7,6 +7,11 @@ body {
   color: #ddd;
 }
 
+.container button:hover {
+  background-color: #737477;
+  transform: scale(1.05);
+}
+
 h1, h2 {
   color: #eee;
 }
@@ -67,8 +72,5 @@ button {
   transition: background-color 0.3s, transform 0.2s;
 }
 
-button:hover {
-  background-color: #737477;
-  transform: scale(1.05);
-}
+
 

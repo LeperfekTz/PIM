@@ -11,14 +11,14 @@
       <div class="sidebar">
         <h2>Menu</h2>
         <ul>
-          <li><a href="{{ url_for('chat') }}">Início</a></li>
+          <li><a href="{{ url_for('chat') }}" class="{{ 'active' if request.endpoint == 'chat' else '' }}">Início</a></li>
           <li><a href="{{ url_for('historico') }}">Histórico</a></li>
           <li><a href="{{ url_for('readme') }}">Informações</a></li>
         </ul>
       </div>
 
       <div class="chat-container">
-        <div class="chat-header">My Chat AI</div>
+        <div class="chat-header">My support Chat AI</div>
         <div class="chat-messages" id="resposta"></div>
         <div class="chat-input">
           <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />

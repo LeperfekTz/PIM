@@ -14,7 +14,7 @@
         <h2>Menu</h2>
         <ul>
           <li><a href="{{ url_for('chat') }}">Início</a></li>
-          <li><a href="{{ url_for('historico') }}">Histórico</a></li>
+          <li><a href="{{ url_for('historico') }}"class="{{ 'active' if request.endpoint == 'historico' else '' }} ">Histórico</a></li>
           <li><a href="{{ url_for('readme') }}">Informações</a></li>
         </ul>
       </div>

@@ -148,7 +148,7 @@ body {
 
 .usuario {
     align-self: flex-end;
-    background-color: #363535;
+    background-color: #252424;
     color: #ffffff;
 }
 
@@ -293,11 +293,11 @@ body {
 }
 
 .mensagem.usuario {
-    background-color: #999;
+    background-color: #303030;
 }
 
 .mensagem.bot {
-    background-color: #999;
+    background-color: #18212c;  
 }
 
 
