@@ -1,4 +1,3 @@
-<!-- templates/historico.html -->
 <!DOCTYPE html>
 <html lang="pt-br">
   <head>
@@ -23,14 +22,24 @@
       <div class="chat-container">
         <div class="chat-header">Histórico de Conversas</div>
         <div class="chat-messages">
-          {% if mensagens %} {% for item in mensagens %}
-          <div class="mensagem usuario">{{ item.usuario }}</div>
-          <div class="mensagem bot">{{ item.ia }}</div>
-          {% endfor %} {% else %}
-          <p>Nenhuma conversa registrada ainda.</p>
+          {% if mensagens %}
+            {% for conversa in mensagens %}
+              <div class="conversa">
+                <h3>Conversa {{ loop.index }}</h3>
+                <hr />
+                {% for item in conversa %}
+                  <div class="mensagem usuario"><strong>Usuário:</strong> {{ item.usuario }}</div>
+                  <div class="mensagem bot"><strong>IA:</strong> {{ item.ia }}</div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          {% else %}
+            <p>Nenhuma conversa registrada ainda.</p>
           {% endif %}
+        </div>
         </div>
       </div>
     </div>
   </body>
 </html>
+

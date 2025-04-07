@@ -66,50 +66,31 @@ def chat():
         "email": session['email'],
         "chat_id": session['chat_id'],
         "mensagens": [],
-        "criado_em": datetime.utcnow()
+        "criado_em": datetime.now()
     })
 
     return render_template('chat.html')
 
-@app.route('/chats-anteriores')
-def chats_anteriores():
-    if 'email' not in session:
-        return redirect(url_for('login'))
-
-    chats = conversas_collection.find({'email': session['email']}).sort('criado_em', -1)
-    return render_template('chats_anteriores.html', chats=chats)
-
-@app.route('/chat/<chat_id>')
-def ver_chat(chat_id):
-    if 'email' not in session:
-        return redirect(url_for('login'))
-
-    chat = conversas_collection.find_one({'chat_id': chat_id, 'email': session['email']})
-    if not chat:
-        flash('Chat não encontrado.')
-        return redirect(url_for('chats_anteriores'))
-
-    return render_template('chat_detalhe.html', mensagens=chat['mensagens'])
-
-
 
 @app.route('/historico')
 def historico():
-    if 'email' not in session or 'chat_id' not in session:
+    if 'email' not in session:
         return redirect(url_for('login'))
 
-    conversa = conversas_collection.find_one({
-        "email": session["email"],
-        "chat_id": session["chat_id"]
-    })
+    # Buscar TODAS as conversas do usuário
+    conversas = conversas_collection.find({"email": session["email"]})
 
     mensagens = []
-    if conversa and "mensagens" in conversa:
-        for item in conversa["mensagens"]:
-            mensagens.append({
-                "usuario": item.get("pergunta", "Pergunta não encontrada"),
-                "ia": item.get("resposta", "Sem resposta da IA")
-            })
+    for conversa in conversas:
+        if "mensagens" in conversa:
+            grupo = []  # Um grupo de mensagens = uma conversa
+            for item in conversa["mensagens"]:
+                grupo.append({
+                    "usuario": item.get("pergunta", "Pergunta não encontrada"),
+                    "ia": item.get("resposta", "Sem resposta da IA")
+                })
+            if grupo:
+                mensagens.append(grupo)  # Adiciona conversa à lista geral
 
     return render_template("historico.html", mensagens=mensagens)
 
@@ -246,7 +227,7 @@ def executar_api():
                 "mensagens": {
                     "pergunta": dados_recebidos["mensagem"],
                     "resposta": mensagem_resposta,
-                    "timestamp": datetime.utcnow()
+                    "timestamp": datetime.now()
                 }
             }},
             upsert=True
