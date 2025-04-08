@@ -237,5 +237,25 @@ body {
     }
 }
 
+.botao-novo-chat,
+.chat-input button {
+    padding: 14px 20px;
+    background-color: #555;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, box-shadow 0.2s, transform 0.2s;
+    margin-right: 10px;
+}
 
+.botao-novo-chat:hover,
+.botao-novo-chat:focus,
+.chat-input button:hover,
+.chat-input button:focus {
+    background-color: #777;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+    outline: none;
+}
 

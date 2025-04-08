@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 import os
 import requests
+import uuid
+
 
 # Carrega variáveis do .env
 load_dotenv()
@@ -51,35 +53,42 @@ def login():
 
     return render_template('login.html')
 
-import uuid
-
 @app.route('/chat')
 def chat():
     if 'email' not in session:
         return redirect(url_for('login'))
 
-    # Verifica e remove último chat vazio (sem mensagens)
-    ultimo_chat = conversas_collection.find_one(
-        {"email": session["email"]},
-        sort=[("criado_em", -1)]
-    )
+    # Se não tiver um chat_id na sessão, cria novo
+    if 'chat_id' not in session:
+        session['chat_id'] = str(uuid.uuid4())
+        conversas_collection.insert_one({
+            "email": session['email'],
+            "chat_id": session['chat_id'],
+            "mensagens": [],
+            "criado_em": datetime.now()
+        })
 
-    if ultimo_chat and not ultimo_chat.get("mensagens"):
-        conversas_collection.delete_one({"_id": ultimo_chat["_id"]})
-
-    # Gerar novo chat_id e salvar na sessão
-    session['chat_id'] = str(uuid.uuid4())
-
-    # Criar nova sessão de chat no MongoDB
-    conversas_collection.insert_one({
+    # Carrega mensagens da conversa ativa
+    conversa = conversas_collection.find_one({
         "email": session['email'],
-        "chat_id": session['chat_id'],
-        "mensagens": [],
-        "criado_em": datetime.now()
+        "chat_id": session['chat_id']
     })
 
-    return render_template('chat.html')
+    mensagens = []
+    if conversa and "mensagens" in conversa:
+        for item in conversa["mensagens"]:
+            mensagens.append({
+                "usuario": item.get("pergunta", ""),
+                "ia": item.get("resposta", "")
+            })
 
+    return render_template('chat.html', mensagens=mensagens)
+
+@app.route('/novo_chat', methods=['POST'])
+def novo_chat():
+    novo_id = str(uuid.uuid4())
+    session['chat_id'] = novo_id
+    return redirect(url_for('chat'))
 
 
 @app.route('/historico')
@@ -87,23 +96,42 @@ def historico():
     if 'email' not in session:
         return redirect(url_for('login'))
 
-    # Buscar TODAS as conversas do usuário
+    # Buscar TODAS as conversas do usu rio
     conversas = conversas_collection.find({"email": session["email"]})
 
     mensagens = []
     for conversa in conversas:
-        if "mensagens" in conversa:
-            grupo = []  # Um grupo de mensagens = uma conversa
-            for item in conversa["mensagens"]:
-                grupo.append({
-                    "usuario": item.get("pergunta", "Pergunta não encontrada"),
-                    "ia": item.get("resposta", "Sem resposta da IA")
-                })
-            if grupo:
-                mensagens.append(grupo)  # Adiciona conversa à lista geral
+        grupo = []  # Um grupo de mensagens = uma conversa
+        for item in conversa.get("mensagens", []):
+            grupo.append({
+                "usuario": item.get("pergunta", "Pergunta n o encontrada"),
+                "ia": item.get("resposta", "Sem resposta da IA")
+            })
+        if grupo:
+            mensagens.append({
+                "chat_id": str(conversa.get("chat_id")),
+                "mensagens": grupo
+            })
 
     return render_template("historico.html", mensagens=mensagens)
 
+
+@app.route('/retomar/<string:chat_id>')
+def retomar_conversa(chat_id):
+    if 'email' not in session:
+        return redirect(url_for('login'))
+
+    conversa = conversas_collection.find_one({
+        "chat_id": chat_id,
+        "email": session["email"]
+    })
+
+    if not conversa:
+        flash("Conversa n o encontrada.")
+        return redirect(url_for('historico'))
+
+    session['chat_id'] = chat_id
+    return redirect(url_for('chat'))
 
 @app.route('/readme')
 def readme():

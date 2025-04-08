@@ -14,7 +14,13 @@
         <h2>Menu</h2>
         <ul>
           <li><a href="{{ url_for('chat') }}">Início</a></li>
-          <li><a href="{{ url_for('historico') }}"class="{{ 'active' if request.endpoint == 'historico' else '' }} ">Histórico</a></li>
+          <li>
+            <a
+              href="{{ url_for('historico') }}"
+              class="{{ 'active' if request.endpoint == 'historico' else '' }} "
+              >Histórico</a
+            >
+          </li>
           <li><a href="{{ url_for('readme') }}">Informações</a></li>
         </ul>
       </div>
@@ -22,24 +28,27 @@
       <div class="chat-container">
         <div class="chat-header">Histórico de Conversas</div>
         <div class="chat-messages">
-          {% if mensagens %}
-            {% for conversa in mensagens %}
-              <div class="conversa">
-                <h3>Conversa {{ loop.index }}</h3>
-                <hr />
-                {% for item in conversa %}
-                  <div class="mensagem usuario"><strong>Usuário:</strong> {{ item.usuario }}</div>
-                  <div class="mensagem bot"><strong>IA:</strong> {{ item.ia }}</div>
-                {% endfor %}
-              </div>
+          {% if mensagens %} {% for conversa in mensagens %}
+          <div class="conversa">
+            <h3>Conversa {{ loop.index }}</h3>
+            <hr />
+            {% for item in conversa.mensagens %}
+            <div class="mensagem usuario">
+              <strong>Usuário:</strong> {{ item.usuario }}
+            </div>
+            <div class="mensagem bot"><strong>IA:</strong> {{ item.ia }}</div>
             {% endfor %}
-          {% else %}
-            <p>Nenhuma conversa registrada ainda.</p>
+            <a
+              href="{{ url_for('retomar_conversa', chat_id=conversa.chat_id) }}"
+            >
+              <button type="button">Retomar esta conversa</button>
+            </a>
+          </div>
+          {% endfor %} {% else %}
+          <p>Nenhuma conversa registrada ainda.</p>
           {% endif %}
-        </div>
         </div>
       </div>
     </div>
   </body>
 </html>
-

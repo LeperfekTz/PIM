@@ -18,14 +18,27 @@
       </div>
 
       <div class="chat-container">
-        <div class="chat-header">My support Chat AI</div>
-        <div class="chat-messages" id="resposta"></div>
-        <div class="chat-input">
-          <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
-          <button onclick="enviarMensagem()">Enviar</button>
+        <div class="chat-header">My Support AI</div>
+
+        <div class="chat-messages" id="resposta">
+          {% if mensagens %}
+            {% for mensagem in mensagens %}
+              <div class="mensagem usuario"><strong>Você:</strong> {{ mensagem.usuario }}</div>
+              <div class="mensagem bot"><strong>IA:</strong> {{ mensagem.ia }}</div>
+            {% endfor %}
+          {% endif %}
         </div>
-      </div>
-    </div>
+
+        <div class="chat-input">
+  <div class="chat-controls">
+    <form action="{{ url_for('novo_chat') }}" method="post" style="display: inline;">
+      <button type="submit" class="botao-novo-chat">Novo Chat</button>
+    </form>
+  </div>
+  <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
+  <button onclick="enviarMensagem()">Enviar</button>
+</div>
+
 
     <script>
       function enviarMensagem() {
@@ -57,9 +70,7 @@
           .then((data) => {
             msgDigitando.remove();
             try {
-              // Tente extrair a resposta
               const respostaFinal = data.resposta;
-
 
               if (!respostaFinal) throw new Error('Formato inesperado da resposta');
 
