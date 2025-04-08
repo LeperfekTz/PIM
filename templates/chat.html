@@ -5,6 +5,7 @@
     <title>My Chat</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   </head>
   <body>
     <div class="main-container">
@@ -27,18 +28,49 @@
               <div class="mensagem bot"><strong>IA:</strong> {{ mensagem.ia }}</div>
             {% endfor %}
           {% endif %}
+
+          {% if imagem_url %}
+            <div class="mensagem imagem">
+              <p><strong>Você:</strong> Enviou esta imagem:</p>
+              <img src="{{ imagem_url }}" alt="Imagem enviada" width="300" />
+            </div>
+          {% endif %}
+
+          {% if resposta %}
+            <div class="mensagem bot">
+              <strong>IA:</strong> {{ resposta }}
+            </div>
+          {% endif %}
         </div>
 
         <div class="chat-input">
-  <div class="chat-controls">
-    <form action="{{ url_for('novo_chat') }}" method="post" style="display: inline;">
-      <button type="submit" class="botao-novo-chat">Novo Chat</button>
-    </form>
-  </div>
-  <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
-  <button onclick="enviarMensagem()">Enviar</button>
-</div>
+          <div class="chat-controls">
+            <form action="{{ url_for('novo_chat') }}" method="post" style="display: inline;">
+              <button type="submit" class="botao-novo-chat">Novo Chat</button>
+            </form>
+          </div>
 
+          <form action="/upload_imagem" method="POST" enctype="multipart/form-data" style="display: inline;">
+            <label for="upload-foto" class="upload-label" title="Enviar imagem">
+              <i class="fa-solid fa-image"></i>
+            </label>
+            <input
+              type="file"
+              id="upload-foto"
+              name="imagem"
+              accept="image/*"
+              style="display: none"
+              onchange="this.form.submit()"
+            />
+          </form>
+
+          <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
+          <button onclick="enviarMensagem()">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
 
     <script>
       function enviarMensagem() {
@@ -48,13 +80,11 @@
 
         if (!mensagem) return;
 
-        // Adiciona mensagem do usuário
         const msgUser = document.createElement('div');
         msgUser.className = 'mensagem usuario';
         msgUser.innerText = mensagem;
         respostaDiv.appendChild(msgUser);
 
-        // Animação digitando
         const msgDigitando = document.createElement('div');
         msgDigitando.className = 'mensagem bot digitando';
         msgDigitando.innerText = 'IA está digitando...';
@@ -100,7 +130,6 @@
         mensagemInput.value = '';
       }
 
-      // Enviar ao pressionar Enter
       document.getElementById('mensagem').addEventListener('keydown', function (event) {
         if (event.key === 'Enter') {
           event.preventDefault();

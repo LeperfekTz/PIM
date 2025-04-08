@@ -5,6 +5,7 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from dotenv import load_dotenv
 from datetime import datetime
 import os
+from werkzeug.utils import secure_filename
 import requests
 import uuid
 
@@ -88,6 +89,40 @@ def chat():
 def novo_chat():
     novo_id = str(uuid.uuid4())
     session['chat_id'] = novo_id
+    return redirect(url_for('chat'))
+
+
+UPLOAD_FOLDER = os.path.join('static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Cria a pasta se não existir
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def imagem_permitida(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/upload_imagem', methods=['POST'])
+def upload_imagem():
+    if 'imagem' not in request.files:
+        return redirect(url_for('chat'))
+
+    file = request.files['imagem']
+
+    if file.filename == '':
+        return redirect(url_for('chat'))
+
+    if file and imagem_permitida(file.filename):
+        filename = secure_filename(file.filename)
+        caminho = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        os.makedirs(os.path.dirname(caminho), exist_ok=True)
+        file.save(caminho)
+        imagem_url = url_for('static', filename=f'uploads/{filename}')
+
+        # Aqui, você pode gerar a resposta da IA com base na imagem se quiser.
+        resposta = "Recebi a imagem! O que você gostaria que eu fizesse com ela?"
+
+        return render_template('chat.html', imagem_url=imagem_url, resposta=resposta)
+
     return redirect(url_for('chat'))
 
 
