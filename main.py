@@ -104,7 +104,7 @@ def processar_imagem_com_ia(caminho):
 
     try:
         resposta = client.chat.completions.create(
-            model="gpt-4-turbo-2024-04-09",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -151,6 +151,16 @@ def upload_imagem():
 
     imagem_url = url_for('static', filename=f'uploads/{imagem.filename}')
     resposta_ia = processar_imagem_com_ia(caminho)
+
+    conversas_collection.update_one(
+    {"chat_id": session["chat_id"], "email": session["email"]},
+    {"$push": {
+        "mensagens": {
+            "pergunta": f"[Imagem enviada: {imagem.filename}]",
+            "resposta": resposta_ia
+        }
+    }}
+)
 
     return render_template('chat.html', imagem_url=imagem_url, resposta=resposta_ia)
 
@@ -297,7 +307,7 @@ def executar_api():
     contexto = prompt_base
 
     if historico and "mensagens" in historico:
-        for msg in historico["mensagens"][-5:]:  # Limita a 5 interações anteriores
+        for msg in historico["mensagens"][-5:]:
             contexto += f"Usuário: {msg['pergunta']}\nIA: {msg['resposta']}\n"
 
     # Adiciona a nova pergunta
