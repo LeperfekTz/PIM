@@ -8,10 +8,12 @@ import os
 from werkzeug.utils import secure_filename
 import requests
 import uuid
-
-
+import base64
+from openai import OpenAI
+import mimetypes
 # Carrega variáveis do .env
 load_dotenv()
+client = os.getenv("OPENAI_API_KEY")
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
@@ -91,40 +93,67 @@ def novo_chat():
     session['chat_id'] = novo_id
     return redirect(url_for('chat'))
 
+def ler_imagem_base64(caminho):
+    with open(caminho, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
 
-UPLOAD_FOLDER = os.path.join('static', 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Cria a pasta se não existir
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+client = OpenAI()
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+def processar_imagem_com_ia(caminho):
+    imagem_base64 = ler_imagem_base64(caminho)
+    mime_type, _ = mimetypes.guess_type(caminho)
 
-def imagem_permitida(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    try:
+        resposta = client.chat.completions.create(
+            model="gpt-4-turbo-2024-04-09",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "O que há nesta imagem?"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{imagem_base64}"
+                            },
+                        },
+                    ],
+                }
+            ],
+            max_tokens=300,
+        )
+        return resposta.choices[0].message.content
+    except Exception as e:
+        print("Erro ao processar imagem com IA:", e)
+        return "Erro ao processar imagem com IA"
+    
 
 @app.route('/upload_imagem', methods=['POST'])
 def upload_imagem():
-    if 'imagem' not in request.files:
-        return redirect(url_for('chat'))
 
-    file = request.files['imagem']
+    print("request.files =>", request.files)
+    print("request.form =>", request.form)
 
-    if file.filename == '':
-        return redirect(url_for('chat'))
+    if 'file' not in request.files:
+        return "Nenhum arquivo enviado", 400
 
-    if file and imagem_permitida(file.filename):
-        filename = secure_filename(file.filename)
-        caminho = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        os.makedirs(os.path.dirname(caminho), exist_ok=True)
-        file.save(caminho)
-        imagem_url = url_for('static', filename=f'uploads/{filename}')
+    imagem = request.files['file']
+    if imagem.filename == '':
+        return "Nenhum arquivo selecionado", 400
+    
+    UPLOAD_FOLDER = 'static/uploads'
+    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-        # Aqui, você pode gerar a resposta da IA com base na imagem se quiser.
-        resposta = "Recebi a imagem! O que você gostaria que eu fizesse com ela?"
 
-        return render_template('chat.html', imagem_url=imagem_url, resposta=resposta)
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-    return redirect(url_for('chat'))
+    caminho = os.path.join(app.config['UPLOAD_FOLDER'], imagem.filename)
+    imagem.save(caminho)
 
+    imagem_url = url_for('static', filename=f'uploads/{imagem.filename}')
+    resposta_ia = processar_imagem_com_ia(caminho)
+
+    return render_template('chat.html', imagem_url=imagem_url, resposta=resposta_ia)
 
 @app.route('/historico')
 def historico():

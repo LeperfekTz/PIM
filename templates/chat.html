@@ -50,19 +50,11 @@
             </form>
           </div>
 
-          <form action="/upload_imagem" method="POST" enctype="multipart/form-data" style="display: inline;">
-            <label for="upload-foto" class="upload-label" title="Enviar imagem">
-              <i class="fa-solid fa-image"></i>
-            </label>
-            <input
-              type="file"
-              id="upload-foto"
-              name="imagem"
-              accept="image/*"
-              style="display: none"
-              onchange="this.form.submit()"
-            />
-          </form>
+          <form action="/upload_imagem" method="POST" enctype="multipart/form-data">
+  <input type="file" name="file" />
+  <button type="submit">Enviar</button>
+</form>
+
 
           <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
           <button onclick="enviarMensagem()">Enviar</button>
