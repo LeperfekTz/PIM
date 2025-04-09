@@ -6,6 +6,30 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+      /* Animação "Lendo imagem..." */
+      .mensagem.bot.lendo::after {
+        content: '';
+        display: inline-block;
+        width: 1em;
+        animation: lendo-pontos 1s steps(3, end) infinite;
+      }
+
+      @keyframes lendo-pontos {
+        0% {
+          content: '';
+        }
+        33% {
+          content: '.';
+        }
+        66% {
+          content: '..';
+        }
+        100% {
+          content: '...';
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="main-container">
@@ -41,6 +65,9 @@
               <strong>IA:</strong> {{ resposta }}
             </div>
           {% endif %}
+
+          <!-- Animação: Lendo imagem -->
+          <div id="status-upload" class="mensagem bot" style="display: none;">IA: Lendo imagem</div>
         </div>
 
         <div class="chat-input">
@@ -61,8 +88,6 @@
         </div>
       </div>
     </div>
-  </body>
-</html>
 
     <script>
       function enviarMensagem() {
@@ -122,11 +147,19 @@
         mensagemInput.value = '';
       }
 
+      // Enter envia a mensagem
       document.getElementById('mensagem').addEventListener('keydown', function (event) {
         if (event.key === 'Enter') {
           event.preventDefault();
           enviarMensagem();
         }
+      });
+
+      // Ao escolher imagem, mostra "Lendo imagem..."
+      document.getElementById('file').addEventListener('change', function () {
+        const statusDiv = document.getElementById('status-upload');
+        statusDiv.classList.add('lendo');
+        statusDiv.style.display = 'block';
       });
     </script>
   </body>
