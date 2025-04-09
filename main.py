@@ -5,7 +5,6 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from dotenv import load_dotenv
 from datetime import datetime
 import os
-from werkzeug.utils import secure_filename
 import requests
 import uuid
 import base64
@@ -131,8 +130,8 @@ def processar_imagem_com_ia(caminho):
 @app.route('/upload_imagem', methods=['POST'])
 def upload_imagem():
 
-    print("request.files =>", request.files)
-    print("request.form =>", request.form)
+    # print("request.files =>", request.files)
+    # print("request.form =>", request.form)
 
     if 'file' not in request.files:
         return "Nenhum arquivo enviado", 400
@@ -345,4 +344,4 @@ def executar_api():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)  

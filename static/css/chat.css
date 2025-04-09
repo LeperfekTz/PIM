@@ -259,17 +259,27 @@ body {
     outline: none;
 }
 
-
 .upload-label {
-  background-color: #28a745;
+  background-color: #555;
   color: white;
-  padding: 8px 12px;
+  padding: 14px 20px;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  margin-right: 8px;
-  transition: background-color 0.3s ease;
+  font-size: 1rem;
+  margin-right: 10px;
+  transition: background-color 0.3s, box-shadow 0.2s, transform 0.2s;
+  display: inline-block;
+  text-align: center;
 }
+
+.upload-label:hover,
+.upload-label:focus {
+  background-color: #777;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+  outline: none;
+}
+
 
 .upload-label:hover {
   background-color: #218838;
