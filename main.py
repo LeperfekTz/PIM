@@ -10,6 +10,7 @@ import uuid
 import base64
 from openai import OpenAI
 import mimetypes
+
 # Carrega variáveis do .env
 load_dotenv()
 client = os.getenv("OPENAI_API_KEY")
@@ -18,7 +19,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['SESSION_TYPE'] = 'filesystem'
 
-# Configuração do Mail
+# Configuração do e-Mail
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -169,7 +170,7 @@ def historico():
     if 'email' not in session:
         return redirect(url_for('login'))
 
-    # Buscar TODAS as conversas do usu rio
+    # Buscar TODAS as conversas do usuario
     conversas = conversas_collection.find({"email": session["email"]})
 
     mensagens = []
