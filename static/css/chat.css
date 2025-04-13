@@ -300,3 +300,26 @@ body {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
+
+/* Animação "Lendo imagem..." */
+      .mensagem.bot.lendo::after {
+        content: '';
+        display: inline-block;
+        width: 1em;
+        animation: lendo-pontos 1s steps(3, end) infinite;
+      }
+
+      @keyframes lendo-pontos {
+        0% {
+          content: '';
+        }
+        33% {
+          content: '.';
+        }
+        66% {
+          content: '..';
+        }
+        100% {
+          content: '...';
+        }
+      }

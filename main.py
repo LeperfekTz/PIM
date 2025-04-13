@@ -4,16 +4,35 @@ from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from dotenv import load_dotenv
 from datetime import datetime
+from sklearn.feature_extraction.text import TfidfVectorizer
 import os
-import requests
+import pickle
+import json
+import numpy as np
 import uuid
-import base64
 from openai import OpenAI
-import mimetypes
+import random
+
+
+
+
+# Carrega modelo treinado: clf (classificador), vectorizer (TF-IDF), e dados
+with open('chatbot_model.pkl', 'rb') as f:
+    clf, vectorizer, data = pickle.load(f)
+
+# Carrega os intents
+with open('intents.json', 'r', encoding='utf-8') as f:
+    intents_data = json.load(f)
 
 # Carrega variáveis do .env
 load_dotenv()
-client = os.getenv("OPENAI_API_KEY")
+
+#openai 
+client_openai = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    organization=os.getenv("OPENAI_ORG_ID"),  # se quiser
+    project=os.getenv("OPENAI_PROJECT_ID")     # se for chave de projeto
+)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
@@ -29,11 +48,111 @@ app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 mail = Mail(app)
 s = URLSafeTimedSerializer(app.secret_key)
 
+
 # MongoDB
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client['PIM']
-usuarios_collection = db['PIM']
+usuarios_collection = db['usuarios']
 conversas_collection = db['conversas']
+colecao_memoria = db["memorias"]
+
+
+def salvar_memoria(usuario_id, tag):
+    colecao_memoria.update_one(
+        {"usuario_id": usuario_id},
+        {"$set": {"ultima_tag": tag, "atualizado_em": datetime.utcnow()}},
+        upsert=True
+    )
+
+def obter_memoria(usuario_id):
+    memoria = colecao_memoria.find_one({"usuario_id": usuario_id})
+    return memoria.get("ultima_tag") if memoria else None
+
+# Funções
+def processar_imagem_com_ia(caminho):
+    try:
+        resposta = client_openai.image.create(
+            prompt="",
+            n=1,
+            size="1024x1024"
+        )
+        return resposta["data"][0]["url"]
+    except Exception as e:
+        print("Erro ao processar imagem com IA:", e)
+        return "Tive um problema ao tentar processar a imagem. Pode tentar de novo?"
+    
+def prever_tag(pergunta, debug=False):
+    entrada = vectorizer.transform([pergunta])
+    probas = clf.predict_proba(entrada)[0]
+    sorted_indices = np.argsort(probas)[::-1]
+    tag_prevista = clf.classes_[sorted_indices[0]]
+    confianca = probas[sorted_indices[0]]
+
+    if debug:
+        top_tags = [(clf.classes_[i], probas[i]) for i in sorted_indices[:3]]
+        print("Top 3 predições:", top_tags)
+
+    if confianca < 0.6:
+        return "sem_resposta"
+    return tag_prevista
+    
+def obter_respostas_por_tag(tag, dados):
+    for intent in dados.get("intents", []):
+        if intent["tag"] == tag:
+            return intent.get("responses", [])
+    return []
+
+
+# Exemplo básico de memória (em dicionário, por enquanto)
+memoria_curta = {}
+
+def gerar_resposta_com_memoria(usuario_id, pergunta, modelo, palavras, dados):
+    tag_predita = prever_tag(pergunta)
+
+    # Se não souber a resposta, tenta com OpenAI
+    if tag_predita == "sem_resposta":
+        contexto = memoria_curta.get(usuario_id, "sem contexto")
+        return usar_openai(pergunta, contexto=f"Último assunto: {contexto}")
+
+    # Atualiza o contexto
+    memoria_curta[usuario_id] = tag_predita
+
+    # Exemplo: resposta com hora
+    if tag_predita == "perguntar_horas":
+        hora_atual = datetime.now().strftime("%H:%M")
+        respostas = obter_respostas_por_tag(tag_predita, dados)
+        return random.choice(respostas).replace("{hora_atual}", hora_atual)
+
+    respostas = obter_respostas_por_tag(tag_predita, dados)
+    return random.choice(respostas) if respostas else usar_openai(pergunta)
+
+def usar_openai(pergunta, contexto=""):
+    try:
+        system_prompt = f"Você é um assistente de tecnologia. Ajude de forma natural. {contexto}"
+        resposta = client_openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": pergunta}
+            ],
+            temperature=0.6,
+            max_tokens=150
+        )
+        return resposta.choices[0].message.content.strip()
+    except Exception as e:
+        print("Erro ao usar OpenAI:", e)
+        return "Tive um problema ao tentar responder. Pode tentar de novo?"
+
+    
+def salvar_interacao(pergunta, resposta, origem, mongo_collection):
+    mongo_collection.insert_one({
+        "pergunta": pergunta,
+        "resposta": resposta,
+        "origem": origem,  # "modelo_local" ou "openai"
+        "timestamp": datetime.utcnow()
+    })
+
+
 
 # Rotas
 @app.route('/')
@@ -49,6 +168,16 @@ def login():
 
         if user:
             session['email'] = email
+
+            # Cria novo chat após login
+            session['chat_id'] = str(uuid.uuid4())
+            conversas_collection.insert_one({
+                "email": email,
+                "chat_id": session['chat_id'],
+                "mensagens": [],
+                "criado_em": datetime.now()
+            })
+
             return redirect('/chat')
         else:
             flash('Usuário ou senha inválidos')
@@ -61,20 +190,9 @@ def chat():
     if 'email' not in session:
         return redirect(url_for('login'))
 
-    # Se não tiver um chat_id na sessão, cria novo
-    if 'chat_id' not in session:
-        session['chat_id'] = str(uuid.uuid4())
-        conversas_collection.insert_one({
-            "email": session['email'],
-            "chat_id": session['chat_id'],
-            "mensagens": [],
-            "criado_em": datetime.now()
-        })
-
-    # Carrega mensagens da conversa ativa
     conversa = conversas_collection.find_one({
         "email": session['email'],
-        "chat_id": session['chat_id']
+        "chat_id": session.get('chat_id')
     })
 
     mensagens = []
@@ -87,46 +205,38 @@ def chat():
 
     return render_template('chat.html', mensagens=mensagens)
 
+@app.route('/perguntar', methods=['POST'])
+def perguntar():
+    pergunta = request.form.get('pergunta')
+    resposta = gerar_resposta_com_memoria(pergunta, clf, vectorizer.get_feature_names_out(), data)
+
+    # Salva no banco
+    if 'chat_id' in session:
+        conversas_collection.update_one(
+            {"chat_id": session['chat_id']},
+            {"$push": {"mensagens": {"pergunta": pergunta, "resposta": resposta, "hora": datetime.now().strftime('%d/%m/%Y %H:%M:%S')}}}
+        )
+
+    return jsonify({"resposta": resposta})
+
 @app.route('/novo_chat', methods=['POST'])
 def novo_chat():
     novo_id = str(uuid.uuid4())
     session['chat_id'] = novo_id
+
+    # Cria novo documento de conversa no MongoDB
+    conversas_collection.insert_one({
+        "email": session['email'],
+        "chat_id": novo_id,
+        "mensagens": [{
+        "pergunta": "Chat iniciado.",
+        "resposta": "Olá! Como posso te ajudar?",
+        "hora": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        }],
+        "criado_em": datetime.now()
+    })
+
     return redirect(url_for('chat'))
-
-def ler_imagem_base64(caminho):
-    with open(caminho, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
-
-client = OpenAI()
-
-def processar_imagem_com_ia(caminho):
-    imagem_base64 = ler_imagem_base64(caminho)
-    mime_type, _ = mimetypes.guess_type(caminho)
-
-    try:
-        resposta = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "O que há nesta imagem?"},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime_type};base64,{imagem_base64}"
-                            },
-                        },
-                    ],
-                }
-            ],
-            max_tokens=300,
-        )
-        return resposta.choices[0].message.content
-    except Exception as e:
-        print("Erro ao processar imagem com IA:", e)
-        return "Erro ao processar imagem com IA"
-    
 
 @app.route('/upload_imagem', methods=['POST'])
 def upload_imagem():
@@ -204,7 +314,7 @@ def retomar_conversa(chat_id):
         flash("Conversa n o encontrada.")
         return redirect(url_for('historico'))
 
-    session['chat_id'] = chat_id
+    novo_id = str(uuid.uuid4())
     return redirect(url_for('chat'))
 
 @app.route('/readme')
@@ -272,87 +382,51 @@ def redefinir_senha(token):
 
     return render_template('reset_pass.html')
 
-
 @app.route('/executar-api', methods=['POST'])
 def executar_api():
+    #login
     if 'email' not in session or 'chat_id' not in session:
-        return jsonify({"erro": "Usuário não autenticado ou chat_id ausente."}), 403
+        return jsonify({"resposta": "Sessão expirada. Faça login novamente."}), 401
+    # Recebe a mensagem data
+    data = request.get_json()
+    mensagem = data.get("mensagem", "")
 
-    dados_recebidos = request.get_json()
-    if not dados_recebidos or "mensagem" not in dados_recebidos:
-        return jsonify({"erro": "Campo 'mensagem' é obrigatório."}), 400
+    if not mensagem.strip():
+        return jsonify({"resposta": "Por favor, envie uma mensagem válida."})
 
-    url = os.getenv('url')
+    # Processa com o modelo
+    X_input = vectorizer.transform([mensagem])
+    tag_predita = clf.predict(X_input)[0]
 
-    # PROMPT BASE usado só no início da conversa
-    prompt_base = (
-        "Você é uma IA de suporte técnico especializada em hardware e software.\n"
-        "Seu objetivo é ajudar o usuário a identificar e resolver problemas com computadores, periféricos, impressoras, HDs, SSDs, Windows, drivers, instalação de programas, travamentos, lentidão, erros de inicialização, etc.\n\n"
-        "Estilo de conversa:\n"
-        "Fale como uma pessoa real e atenciosa, sem parecer um robô.\n"
-        "Seja simpático, direto e profissional, como um técnico experiente que explica tudo numa boa.\n"
-        "Converse com o usuário. Pergunte, ouça (analise a resposta), explique.\n"
-        "Evite exageros como emojis em excesso ou frases forçadas. Use só quando for natural.\n"
-        "Traga soluções de forma clara, passo a passo, sem jargões técnicos desnecessários.\n"
-        "Quando houver mais de uma causa possível, comece pelas mais comuns.\n"
-        "Sempre busque entender o que a pessoa já tentou e o contexto antes de sugerir algo.\n"
-        "Use palavras fáceis e busque colocar explicação, pessoas que não sabem nada usarão você.\n\n"
+    resposta = "Desculpe, não entendi."
+
+    # Busca a resposta correspondente
+    for intent in intents_data["intents"]:
+        if intent["tag"] == tag_predita:
+            if tag_predita == "horas":
+                resposta = f"Agora são {datetime.now().strftime('%H:%M')}"
+            else:
+                resposta = random.choice(intent["responses"])
+            break
+
+    pergunta = mensagem
+
+    # Salva no banco de dados
+    conversas_collection.update_one(
+        {"email": session['email'], "chat_id": session['chat_id']},
+        {"$push": {
+            "mensagens": {
+                "pergunta": pergunta,
+                "resposta": resposta,
+                "hora": datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+            }
+        }}
     )
 
-    # Montar contexto com histórico da conversa
-    historico = conversas_collection.find_one({
-        "chat_id": session["chat_id"],
-        "email": session["email"]
-    })
-
-    contexto = prompt_base
-
-    if historico and "mensagens" in historico:
-        for msg in historico["mensagens"][-5:]:
-            contexto += f"Usuário: {msg['pergunta']}\nIA: {msg['resposta']}\n"
-
-    # Adiciona a nova pergunta
-    contexto += f"Usuário: {dados_recebidos['mensagem']}\nIA:"
-
-    payload = {
-        "input_value": contexto,
-        "output_type": "chat",
-        "input_type": "chat"
-    }
-
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()
-        resposta_json = response.json()
-
-        # Extrai a resposta final do modelo
-        mensagem_resposta = resposta_json['outputs'][0]['outputs'][0]['outputs']['message']['message']
-
-        # Atualiza o histórico no banco de dados
-        conversas_collection.update_one(
-            {"chat_id": session["chat_id"], "email": session["email"]},
-            {"$push": {
-                "mensagens": {
-                    "pergunta": dados_recebidos["mensagem"],
-                    "resposta": mensagem_resposta,
-                    "timestamp": datetime.now()
-                }
-            }},
-            upsert=True
-        )
-
-        return jsonify({"resposta": mensagem_resposta})
-
-    except requests.exceptions.HTTPError as e:
-        erro_resposta = e.response.text if e.response else "Sem resposta"
-        return jsonify({"erro": f"Erro HTTP: {str(e)}", "detalhes": erro_resposta}), 500
-    except requests.exceptions.RequestException as e:
-        return jsonify({"erro": f"Erro na requisição: {str(e)}"}), 500
+    return jsonify({"resposta": resposta})
 
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)  
+
+

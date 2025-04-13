@@ -3,40 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <title>My Chat</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <style>
-      /* Animação "Lendo imagem..." */
-      .mensagem.bot.lendo::after {
-        content: '';
-        display: inline-block;
-        width: 1em;
-        animation: lendo-pontos 1s steps(3, end) infinite;
-      }
-
-      @keyframes lendo-pontos {
-        0% {
-          content: '';
-        }
-        33% {
-          content: '.';
-        }
-        66% {
-          content: '..';
-        }
-        100% {
-          content: '...';
-        }
-      }
-    </style>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/chat.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
   </head>
   <body>
     <div class="main-container">
       <div class="sidebar">
         <h2>Menu</h2>
         <ul>
-          <li><a href="{{ url_for('chat') }}" class="{{ 'active' if request.endpoint == 'chat' else '' }}">Início</a></li>
+          <li>
+            <a
+              href="{{ url_for('chat') }}"
+              class="{{ 'active' if request.endpoint == 'chat' else '' }}"
+              >Início</a
+            >
+          </li>
           <li><a href="{{ url_for('historico') }}">Histórico</a></li>
           <li><a href="{{ url_for('readme') }}">Informações</a></li>
         </ul>
@@ -46,44 +37,60 @@
         <div class="chat-header">My Support AI</div>
 
         <div class="chat-messages" id="resposta">
-          {% if mensagens %}
-            {% for mensagem in mensagens %}
-              <div class="mensagem usuario"><strong>Você:</strong> {{ mensagem.usuario }}</div>
-              <div class="mensagem bot"><strong>IA:</strong> {{ mensagem.ia }}</div>
-            {% endfor %}
-          {% endif %}
-
-          {% if imagem_url %}
-            <div class="mensagem imagem">
-              <p><strong>Você:</strong> Enviou esta imagem:</p>
-              <img src="{{ imagem_url }}" alt="Imagem enviada" width="300" />
-            </div>
-          {% endif %}
-
-          {% if resposta %}
-            <div class="mensagem bot">
-              <strong>IA:</strong> {{ resposta }}
-            </div>
+          {% if mensagens %} {% for mensagem in mensagens %}
+          <div class="mensagem usuario">
+            <strong>Você:</strong> {{ mensagem.usuario }}
+          </div>
+          <div class="mensagem bot"><strong>IA:</strong> {{ mensagem.ia }}</div>
+          {% endfor %} {% endif %} {% if imagem_url %}
+          <div class="mensagem imagem">
+            <p><strong>Você:</strong> Enviou esta imagem:</p>
+            <img src="{{ imagem_url }}" alt="Imagem enviada" width="300" />
+          </div>
+          {% endif %} {% if resposta %}
+          <div class="mensagem bot"><strong>IA:</strong> {{ resposta }}</div>
           {% endif %}
 
           <!-- Animação: Lendo imagem -->
-          <div id="status-upload" class="mensagem bot" style="display: none;">IA: Lendo imagem</div>
+          <div id="status-upload" class="mensagem bot" style="display: none">
+            IA: Lendo imagem
+          </div>
         </div>
 
         <div class="chat-input">
           <div class="chat-controls">
-            <form action="{{ url_for('novo_chat') }}" method="post" style="display: inline;">
+            <form
+              action="{{ url_for('novo_chat') }}"
+              method="post"
+              style="display: inline"
+            >
               <button type="submit" class="botao-novo-chat">Novo Chat</button>
             </form>
           </div>
 
           <!-- Formulário de imagem com envio automático -->
-          <form id="upload-form" action="/upload_imagem" method="POST" enctype="multipart/form-data" style="display: inline;">
+          <form
+            id="upload-form"
+            action="/upload_imagem"
+            method="POST"
+            enctype="multipart/form-data"
+            style="display: inline"
+          >
             <label class="upload-label" for="file">Enviar Imagem</label>
-            <input type="file" name="file" id="file" style="display: none;" onchange="document.getElementById('upload-form').submit();" />
+            <input
+              type="file"
+              name="file"
+              id="file"
+              style="display: none"
+              onchange="document.getElementById('upload-form').submit();"
+            />
           </form>
 
-          <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
+          <input
+            type="text"
+            id="mensagem"
+            placeholder="Digite sua mensagem..."
+          />
           <button onclick="enviarMensagem()">Enviar</button>
         </div>
       </div>
@@ -91,22 +98,22 @@
 
     <script>
       function enviarMensagem() {
-        const mensagemInput = document.getElementById('mensagem');
-        const respostaDiv = document.getElementById('resposta');
-        const mensagem = mensagemInput.value.trim();
+        const mensagemInput = document.getElementById('mensagem')
+        const respostaDiv = document.getElementById('resposta')
+        const mensagem = mensagemInput.value.trim()
 
-        if (!mensagem) return;
+        if (!mensagem) return
 
-        const msgUser = document.createElement('div');
-        msgUser.className = 'mensagem usuario';
-        msgUser.innerText = mensagem;
-        respostaDiv.appendChild(msgUser);
+        const msgUser = document.createElement('div')
+        msgUser.className = 'mensagem usuario'
+        msgUser.innerText = mensagem
+        respostaDiv.appendChild(msgUser)
 
-        const msgDigitando = document.createElement('div');
-        msgDigitando.className = 'mensagem bot digitando';
-        msgDigitando.innerText = 'IA está digitando...';
-        respostaDiv.appendChild(msgDigitando);
-        respostaDiv.scrollTop = respostaDiv.scrollHeight;
+        const msgDigitando = document.createElement('div')
+        msgDigitando.className = 'mensagem bot digitando'
+        msgDigitando.innerText = 'IA está digitando...'
+        respostaDiv.appendChild(msgDigitando)
+        respostaDiv.scrollTop = respostaDiv.scrollHeight
 
         fetch('/executar-api', {
           method: 'POST',
@@ -115,52 +122,67 @@
         })
           .then((response) => response.json())
           .then((data) => {
-            msgDigitando.remove();
+            msgDigitando.remove()
             try {
-              const respostaFinal = data.resposta;
+              const respostaFinal = data.resposta
 
-              if (!respostaFinal) throw new Error('Formato inesperado da resposta');
+              if (!respostaFinal)
+                throw new Error('Formato inesperado da resposta')
 
-              const msgBot = document.createElement('div');
-              msgBot.className = 'mensagem bot';
-              msgBot.innerText = respostaFinal;
-              respostaDiv.appendChild(msgBot);
+              const msgBot = document.createElement('div')
+              msgBot.className = 'mensagem bot'
+              msgBot.innerText = respostaFinal
+              respostaDiv.appendChild(msgBot)
             } catch (err) {
-              const erroMsg = document.createElement('div');
-              erroMsg.className = 'mensagem erro';
-              erroMsg.innerText = 'Erro ao interpretar a resposta.';
-              respostaDiv.appendChild(erroMsg);
-              console.error('Erro no processamento:', err, data);
+              const erroMsg = document.createElement('div')
+              erroMsg.className = 'mensagem erro'
+              erroMsg.innerText = 'Erro ao interpretar a resposta.'
+              respostaDiv.appendChild(erroMsg)
+              console.error('Erro no processamento:', err, data)
             }
 
-            respostaDiv.scrollTop = respostaDiv.scrollHeight;
+            respostaDiv.scrollTop = respostaDiv.scrollHeight
           })
           .catch((err) => {
-            msgDigitando.remove();
-            const erroMsg = document.createElement('div');
-            erroMsg.className = 'mensagem erro';
-            erroMsg.innerText = 'Erro na requisição.';
-            respostaDiv.appendChild(erroMsg);
-            console.error('Erro de rede:', err);
-          });
+            msgDigitando.remove()
+            const erroMsg = document.createElement('div')
+            erroMsg.className = 'mensagem erro'
+            erroMsg.innerText = 'Erro na requisição.'
+            respostaDiv.appendChild(erroMsg)
+            console.error('Erro de rede:', err)
+          })
 
-        mensagemInput.value = '';
+        mensagemInput.value = ''
       }
 
       // Enter envia a mensagem
-      document.getElementById('mensagem').addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          enviarMensagem();
-        }
-      });
+      document
+        .getElementById('mensagem')
+        .addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            enviarMensagem()
+          }
+        })
 
       // Ao escolher imagem, mostra "Lendo imagem..."
       document.getElementById('file').addEventListener('change', function () {
-        const statusDiv = document.getElementById('status-upload');
-        statusDiv.classList.add('lendo');
-        statusDiv.style.display = 'block';
+        const statusDiv = document.getElementById('status-upload')
+        statusDiv.classList.add('lendo')
+        statusDiv.style.display = 'block'
+      })
+    </script>
+    <script>
+      window.addEventListener('DOMContentLoaded', async () => {
+        const res = await fetch("/api/conversas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        localStorage.setItem("idConversa", data._id); // salva o ID da conversa no localStorage (ou onde preferir)
+        console.log("Nova conversa criada:", data);
       });
     </script>
   </body>
 </html>
+
