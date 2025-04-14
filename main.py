@@ -12,6 +12,8 @@ import numpy as np
 import uuid
 from openai import OpenAI
 import random
+from collections import deque
+
 
 
 
@@ -54,19 +56,6 @@ client = MongoClient(os.getenv("MONGO_URI"))
 db = client['PIM']
 usuarios_collection = db['usuarios']
 conversas_collection = db['conversas']
-colecao_memoria = db["memorias"]
-
-
-def salvar_memoria(usuario_id, tag):
-    colecao_memoria.update_one(
-        {"usuario_id": usuario_id},
-        {"$set": {"ultima_tag": tag, "atualizado_em": datetime.utcnow()}},
-        upsert=True
-    )
-
-def obter_memoria(usuario_id):
-    memoria = colecao_memoria.find_one({"usuario_id": usuario_id})
-    return memoria.get("ultima_tag") if memoria else None
 
 # Funções
 def processar_imagem_com_ia(caminho):
@@ -83,13 +72,13 @@ def processar_imagem_com_ia(caminho):
     
 def prever_tag(pergunta, debug=False):
     entrada = vectorizer.transform([pergunta])
-    probas = clf.predict_proba(entrada)[0]
-    sorted_indices = np.argsort(probas)[::-1]
+    probabilidade = clf.predict_probabilidade(entrada)[0]
+    sorted_indices = np.argsort(probabilidade)[::-1]
     tag_prevista = clf.classes_[sorted_indices[0]]
-    confianca = probas[sorted_indices[0]]
+    confianca = probabilidade[sorted_indices[0]]
 
     if debug:
-        top_tags = [(clf.classes_[i], probas[i]) for i in sorted_indices[:3]]
+        top_tags = [(clf.classes_[i], probabilidade[i]) for i in sorted_indices[:3]]
         print("Top 3 predições:", top_tags)
 
     if confianca < 0.6:
@@ -106,43 +95,38 @@ def obter_respostas_por_tag(tag, dados):
 # Exemplo básico de memória (em dicionário, por enquanto)
 memoria_curta = {}
 
-def gerar_resposta_com_memoria(usuario_id, pergunta, modelo, palavras, dados):
-    tag_predita = prever_tag(pergunta)
+def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
+    if usuario_id not in memoria_curta:
+        memoria_curta[usuario_id] = deque(maxlen=limite)
+    memoria_curta[usuario_id].append({"pergunta": pergunta, "resposta": resposta})
+    
+def gerar_resposta_com_memoria(pergunta, usuario_id):
+    # Recupera o contexto (memória curta) para esse usuário
+    contexto = memoria_curta.get(usuario_id, [])
+    
+    # Gera a resposta usando a OpenAI e o contexto
+    resposta = usar_openai(pergunta, contexto)
+    
+    # Atualiza a memória curta com a nova pergunta/resposta
+    atualizar_memoria(usuario_id, pergunta, resposta)
+    
+    return resposta
 
-    # Se não souber a resposta, tenta com OpenAI
-    if tag_predita == "sem_resposta":
-        contexto = memoria_curta.get(usuario_id, "sem contexto")
-        return usar_openai(pergunta, contexto=f"Último assunto: {contexto}")
+def usar_openai(pergunta, contexto):
+    prompt = ""
 
-    # Atualiza o contexto
-    memoria_curta[usuario_id] = tag_predita
+    # Adiciona as mensagens anteriores
+    for troca in contexto:
+        prompt += f"Usuário: {troca['pergunta']}\n"
+        prompt += f"IA: {troca['resposta']}\n"
 
-    # Exemplo: resposta com hora
-    if tag_predita == "perguntar_horas":
-        hora_atual = datetime.now().strftime("%H:%M")
-        respostas = obter_respostas_por_tag(tag_predita, dados)
-        return random.choice(respostas).replace("{hora_atual}", hora_atual)
+    # Adiciona a pergunta atual
+    prompt += f"Usuário: {pergunta}\nIA:"
 
-    respostas = obter_respostas_por_tag(tag_predita, dados)
-    return random.choice(respostas) if respostas else usar_openai(pergunta)
+    # Chamada à API da OpenAI
+    resposta = chamar_openai(prompt)
 
-def usar_openai(pergunta, contexto=""):
-    try:
-        system_prompt = f"Você é um assistente de tecnologia. Ajude de forma natural. {contexto}"
-        resposta = client_openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": pergunta}
-            ],
-            temperature=0.6,
-            max_tokens=150
-        )
-        return resposta.choices[0].message.content.strip()
-    except Exception as e:
-        print("Erro ao usar OpenAI:", e)
-        return "Tive um problema ao tentar responder. Pode tentar de novo?"
-
+    return resposta
     
 def salvar_interacao(pergunta, resposta, origem, mongo_collection):
     mongo_collection.insert_one({
@@ -151,8 +135,6 @@ def salvar_interacao(pergunta, resposta, origem, mongo_collection):
         "origem": origem,  # "modelo_local" ou "openai"
         "timestamp": datetime.utcnow()
     })
-
-
 
 # Rotas
 @app.route('/')
@@ -208,7 +190,7 @@ def chat():
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
     pergunta = request.form.get('pergunta')
-    resposta = gerar_resposta_com_memoria(pergunta, clf, vectorizer.get_feature_names_out(), data)
+    resposta = gerar_resposta_com_memoria(pergunta, session['email'])
 
     # Salva no banco
     if 'chat_id' in session:
@@ -403,7 +385,7 @@ def executar_api():
     # Busca a resposta correspondente
     for intent in intents_data["intents"]:
         if intent["tag"] == tag_predita:
-            if tag_predita == "horas":
+            if tag_predita == "hora":
                 resposta = f"Agora são {datetime.now().strftime('%H:%M')}"
             else:
                 resposta = random.choice(intent["responses"])
