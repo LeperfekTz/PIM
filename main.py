@@ -13,6 +13,8 @@ import uuid
 from openai import OpenAI
 import random
 from collections import deque
+from deep_translator import GoogleTranslator
+
 
 
 
@@ -101,16 +103,18 @@ def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
     memoria_curta[usuario_id].append({"pergunta": pergunta, "resposta": resposta})
     
 def gerar_resposta_com_memoria(pergunta, usuario_id):
-    # Recupera o contexto (memória curta) para esse usuário
     contexto = memoria_curta.get(usuario_id, [])
-    
-    # Gera a resposta usando a OpenAI e o contexto
     resposta = usar_openai(pergunta, contexto)
-    
-    # Atualiza a memória curta com a nova pergunta/resposta
-    atualizar_memoria(usuario_id, pergunta, resposta)
-    
-    return resposta
+
+    # 🔁 Traduz a resposta para português
+    try:
+        resposta_pt = GoogleTranslator(source='auto', target='pt').translate(resposta)
+    except:
+        resposta_pt = resposta  # fallback se a tradução falhar
+
+    atualizar_memoria(usuario_id, pergunta, resposta_pt)
+    return resposta_pt
+
 
 def usar_openai(pergunta, contexto):
     prompt = ""
