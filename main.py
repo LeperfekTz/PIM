@@ -1,5 +1,4 @@
 import os
-import json
 import uuid
 from datetime import datetime
 
@@ -44,11 +43,31 @@ perguntas_respostas_collection = db['perguntas_respostas']
 print("Testando conexão com MongoDB...")
 print(perguntas_respostas_collection.count_documents({}), "documentos encontrados.")
 
-
-
-
 # Exemplo básico de memória (em dicionário, por enquanto)
 memoria_curta = {}
+
+def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
+    # Tenta buscar no banco
+    resposta = buscar_resposta_no_banco(pergunta_usuario)
+
+    if resposta:
+        atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
+        return resposta
+
+    # Se não encontrar, usa a OpenAI
+    resposta = usar_openai_com_base_no_banco(pergunta_usuario)
+
+    # Atualiza a memória curta com a nova resposta
+    atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
+
+    # (Opcional) Salva a nova pergunta/resposta no banco
+    perguntas_respostas_collection.insert_one({
+        "pergunta": pergunta_usuario,
+        "resposta": resposta
+    })
+
+    return resposta
+
 
 def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
     if usuario_id not in memoria_curta:
@@ -76,13 +95,13 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
         pergunta = doc.get('Customer_Issue')
         resposta = doc.get('Tech_Response')
         if pergunta and resposta:
-            contexto += f"Problema: {pergunta}\nResposta técnica: {resposta}\n"
+            contexto += f"Problema: {pergunta}\nResposta com AI: {resposta}\n"
 
     if not contexto:
         return "Não encontrei informações no banco para responder."
 
     prompt = f"""
-    Responda com base apenas nas informações a seguir. Não invente nada.
+    voce é um assistente de suporte de TI em geral, não responda nada sobre outras coisas se for perguntado fale "não tenho resposta para isso...".
 
     {contexto}
 
