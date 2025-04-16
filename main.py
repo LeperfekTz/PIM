@@ -1,42 +1,23 @@
+import os
+import json
+import uuid
+from datetime import datetime
+
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from pymongo import MongoClient
 from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from dotenv import load_dotenv
-from datetime import datetime
-from sklearn.feature_extraction.text import TfidfVectorizer
-import os
-import pickle
-import json
-import numpy as np
-import uuid
-from openai import OpenAI
-import random
-from collections import deque
-from deep_translator import GoogleTranslator
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+import openai
 
 
 
 
-
-
-# Carrega modelo treinado: clf (classificador), vectorizer (TF-IDF), e dados
-with open('chatbot_model.pkl', 'rb') as f:
-    clf, vectorizer, data = pickle.load(f)
-
-# Carrega os intents
-with open('intents.json', 'r', encoding='utf-8') as f:
-    intents_data = json.load(f)
 
 # Carrega variáveis do .env
 load_dotenv()
 
 #openai 
-client_openai = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    organization=os.getenv("OPENAI_ORG_ID"),  # se quiser
-    project=os.getenv("OPENAI_PROJECT_ID")     # se for chave de projeto
-)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
@@ -58,40 +39,12 @@ client = MongoClient(os.getenv("MONGO_URI"))
 db = client['PIM']
 usuarios_collection = db['usuarios']
 conversas_collection = db['conversas']
+perguntas_respostas_collection = db['perguntas_respostas']
 
-# Funções
-def processar_imagem_com_ia(caminho):
-    try:
-        resposta = client_openai.image.create(
-            prompt="",
-            n=1,
-            size="1024x1024"
-        )
-        return resposta["data"][0]["url"]
-    except Exception as e:
-        print("Erro ao processar imagem com IA:", e)
-        return "Tive um problema ao tentar processar a imagem. Pode tentar de novo?"
-    
-def prever_tag(pergunta, debug=False):
-    entrada = vectorizer.transform([pergunta])
-    probabilidade = clf.predict_probabilidade(entrada)[0]
-    sorted_indices = np.argsort(probabilidade)[::-1]
-    tag_prevista = clf.classes_[sorted_indices[0]]
-    confianca = probabilidade[sorted_indices[0]]
+print("Testando conexão com MongoDB...")
+print(perguntas_respostas_collection.count_documents({}), "documentos encontrados.")
 
-    if debug:
-        top_tags = [(clf.classes_[i], probabilidade[i]) for i in sorted_indices[:3]]
-        print("Top 3 predições:", top_tags)
 
-    if confianca < 0.6:
-        return "sem_resposta"
-    return tag_prevista
-    
-def obter_respostas_por_tag(tag, dados):
-    for intent in dados.get("intents", []):
-        if intent["tag"] == tag:
-            return intent.get("responses", [])
-    return []
 
 
 # Exemplo básico de memória (em dicionário, por enquanto)
@@ -101,45 +54,50 @@ def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
     if usuario_id not in memoria_curta:
         memoria_curta[usuario_id] = deque(maxlen=limite)
     memoria_curta[usuario_id].append({"pergunta": pergunta, "resposta": resposta})
-    
-def gerar_resposta_com_memoria(pergunta, usuario_id):
-    contexto = memoria_curta.get(usuario_id, [])
-    resposta = usar_openai(pergunta, contexto)
 
-    # 🔁 Traduz a resposta para português
-    try:
-        resposta_pt = GoogleTranslator(source='auto', target='pt').translate(resposta)
-    except:
-        resposta_pt = resposta  # fallback se a tradução falhar
-
-    atualizar_memoria(usuario_id, pergunta, resposta_pt)
-    return resposta_pt
-
-
-def usar_openai(pergunta, contexto):
-    prompt = ""
-
-    # Adiciona as mensagens anteriores
-    for troca in contexto:
-        prompt += f"Usuário: {troca['pergunta']}\n"
-        prompt += f"IA: {troca['resposta']}\n"
-
-    # Adiciona a pergunta atual
-    prompt += f"Usuário: {pergunta}\nIA:"
-
-    # Chamada à API da OpenAI
-    resposta = chamar_openai(prompt)
-
-    return resposta
-    
-def salvar_interacao(pergunta, resposta, origem, mongo_collection):
-    mongo_collection.insert_one({
-        "pergunta": pergunta,
-        "resposta": resposta,
-        "origem": origem,  # "modelo_local" ou "openai"
-        "timestamp": datetime.utcnow()
+# Função para buscar perguntas e respostas no MongoDB
+def buscar_resposta_no_banco(mensagem):
+    # Busca no banco de dados por perguntas semelhantes à mensagem do usuário
+    resultado = perguntas_respostas_collection.find_one({
+        "pergunta": {"$regex": f"^{mensagem}$", "$options": "i"}  # Busca exata ou similar
     })
+    
+    if resultado:
+        return resultado.get("resposta")  # Retorna a resposta se encontrada
+    return None  # Retorna None se não encontrar nenhuma correspondência
 
+def usar_openai_com_base_no_banco(pergunta_usuario):
+    documentos = list(perguntas_respostas_collection.find(
+        {"Customer_Issue": {"$exists": True}, "Tech_Response": {"$exists": True}}
+    ).limit(20))
+
+    contexto = ""
+    for doc in documentos:
+        pergunta = doc.get('Customer_Issue')
+        resposta = doc.get('Tech_Response')
+        if pergunta and resposta:
+            contexto += f"Problema: {pergunta}\nResposta técnica: {resposta}\n"
+
+    if not contexto:
+        return "Não encontrei informações no banco para responder."
+
+    prompt = f"""
+    Responda com base apenas nas informações a seguir. Não invente nada.
+
+    {contexto}
+
+    Pergunta do usuário: {pergunta_usuario}
+    """
+
+    resposta = openai.ChatCompletion.create(
+        model="gpt-4",
+        temperature=0,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return resposta.choices[0].message["content"]
+
+    
 # Rotas
 @app.route('/')
 def index():
@@ -194,7 +152,9 @@ def chat():
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
     pergunta = request.form.get('pergunta')
-    resposta = gerar_resposta_com_memoria(pergunta, session['email'])
+
+    if not pergunta:
+        return jsonify({"resposta": "Por favor, envie uma pergunta válida."}), 400
 
     # Salva no banco
     if 'chat_id' in session:
@@ -223,43 +183,6 @@ def novo_chat():
     })
 
     return redirect(url_for('chat'))
-
-@app.route('/upload_imagem', methods=['POST'])
-def upload_imagem():
-
-    # print("request.files =>", request.files)
-    # print("request.form =>", request.form)
-
-    if 'file' not in request.files:
-        return "Nenhum arquivo enviado", 400
-
-    imagem = request.files['file']
-    if imagem.filename == '':
-        return "Nenhum arquivo selecionado", 400
-    
-    UPLOAD_FOLDER = 'static/uploads'
-    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-    caminho = os.path.join(app.config['UPLOAD_FOLDER'], imagem.filename)
-    imagem.save(caminho)
-
-    imagem_url = url_for('static', filename=f'uploads/{imagem.filename}')
-    resposta_ia = processar_imagem_com_ia(caminho)
-
-    conversas_collection.update_one(
-    {"chat_id": session["chat_id"], "email": session["email"]},
-    {"$push": {
-        "mensagens": {
-            "pergunta": f"[Imagem enviada: {imagem.filename}]",
-            "resposta": resposta_ia
-        }
-    }}
-)
-
-    return render_template('chat.html', imagem_url=imagem_url, resposta=resposta_ia)
 
 @app.route('/historico')
 def historico():
@@ -369,50 +292,34 @@ def redefinir_senha(token):
     return render_template('reset_pass.html')
 
 @app.route('/executar-api', methods=['POST'])
-def executar_api():
-    #login
+async def executar_api():
     if 'email' not in session or 'chat_id' not in session:
         return jsonify({"resposta": "Sessão expirada. Faça login novamente."}), 401
-    # Recebe a mensagem data
+
     data = request.get_json()
-    mensagem = data.get("mensagem", "")
+    mensagem = data.get("mensagem", "").strip()
 
-    if not mensagem.strip():
-        return jsonify({"resposta": "Por favor, envie uma mensagem válida."})
+    if not mensagem:
+        return jsonify({"resposta": "Por favor, envie uma mensagem válida."}), 400
 
-    # Processa com o modelo
-    X_input = vectorizer.transform([mensagem])
-    tag_predita = clf.predict(X_input)[0]
+    # Gera a resposta usando a base do banco
+    resposta_final = usar_openai_com_base_no_banco(mensagem)
 
-    resposta = "Desculpe, não entendi."
-
-    # Busca a resposta correspondente
-    for intent in intents_data["intents"]:
-        if intent["tag"] == tag_predita:
-            if tag_predita == "hora":
-                resposta = f"Agora são {datetime.now().strftime('%H:%M')}"
-            else:
-                resposta = random.choice(intent["responses"])
-            break
-
-    pergunta = mensagem
-
-    # Salva no banco de dados
+    # Salva a conversa no banco
     conversas_collection.update_one(
         {"email": session['email'], "chat_id": session['chat_id']},
         {"$push": {
             "mensagens": {
-                "pergunta": pergunta,
-                "resposta": resposta,
+                "pergunta": mensagem,
+                "resposta": resposta_final,
                 "hora": datetime.now().strftime('%d/%m/%Y %H:%M:%S')
             }
-        }}
+        }},
+        upsert=True  # cria o documento se não existir
     )
 
-    return jsonify({"resposta": resposta})
+    return jsonify({"resposta": resposta_final})
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)  
-
-
+    app.run(host='0.0.0.0', port=5000, debug=True)
