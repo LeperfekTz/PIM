@@ -41,6 +41,7 @@ print(perguntas_respostas_collection.count_documents({}), "documentos encontrado
 memoria_curta = {}
 
 # Função para atualizar a memória (local do usuário)
+# Função para atualizar a memória curta do usuário
 def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
     if usuario_id not in memoria_curta:
         memoria_curta[usuario_id] = deque(maxlen=limite)
@@ -65,8 +66,9 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
 
     contexto = ""
     for doc in documentos:
-        pergunta = doc.get('Customer_Issue')
-        resposta = doc.get('Tech_Response')
+        pergunta = doc.get('Customer_Issue') or doc.get('pergunta')
+        resposta = doc.get('Tech_Response') or doc.get('resposta')
+
         if pergunta and resposta:
             contexto += f"Problema: {pergunta}\nIA: {resposta}\n"
 
@@ -89,6 +91,7 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
 
     return resposta.choices[0].message["content"]
 
+# Função para obter a resposta (primeiro tenta buscar no banco, senão usa o OpenAI)
 def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
     try:
         # Tenta buscar no banco
@@ -105,11 +108,16 @@ def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
         # Atualiza a memória curta com a nova resposta
         atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
 
-        # Salva a nova pergunta/resposta no banco de dados
-        perguntas_respostas_collection.insert_one({
-            "Customer_Issue": pergunta_usuario,
-            "Tech_Response": resposta
-        })
+        # Verificando os valores antes de inserir no banco
+        print(f"Inserindo no banco a pergunta: {pergunta_usuario} e a resposta: {resposta}")
+        try:
+            result = perguntas_respostas_collection.insert_one({
+                "Customer_Issue": pergunta_usuario,
+                "Tech_Response": resposta
+            })
+            print(f"Resposta inserida com sucesso! ID: {result.inserted_id}")
+        except Exception as e:
+            print(f"Erro ao salvar pergunta e resposta no banco: {e}")
 
         return resposta
 
@@ -118,6 +126,10 @@ def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
         return "Ocorreu um erro ao processar sua solicitação."
 
 
+
+@app.route('/')
+def index():
+    return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -145,34 +157,27 @@ def login():
 
     return render_template('login.html')
 
-@app.route('/chat', methods=["GET", "POST"])
+@app.route('/chat')
 def chat():
     if 'email' not in session:
         return redirect(url_for('login'))
 
+    conversa = conversas_collection.find_one({
+        "email": session['email'],
+        "chat_id": session.get('chat_id')
+    })
+
     mensagens = []
+    if conversa and "mensagens" in conversa:
+        for item in conversa["mensagens"]:
+            pergunta = item.get("pergunta", "").strip()
+            resposta = item.get("resposta", "").strip()
+            mensagens.append({
+                "usuario": pergunta,
+                "ia": resposta
+            })
 
-    # Verifica se existe um chat_id salvo para retomada
-    chat_id = session.get("chat_id")
-    if chat_id:
-        conversa = conversas_collection.find_one({
-            "chat_id": chat_id,
-            "email": session["email"]
-        })
-
-        if conversa:
-            for item in conversa.get("mensagens", []):
-                mensagens.append({
-                    "usuario": item.get("pergunta", "Pergunta não encontrada"),
-                    "ia": item.get("resposta", "Sem resposta da IA")
-                })
-    
-    # Se for POST (enviando nova pergunta), aí você continua sua lógica normal...
-    if request.method == "POST":
-        # aqui vai sua lógica de chat normalmente
-        pass
-
-    return render_template("chat.html", mensagens=mensagens)
+    return render_template('chat.html', mensagens=mensagens)
 
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
@@ -190,6 +195,7 @@ def perguntar():
             {"chat_id": session['chat_id']},
             {"$push": {"mensagens": {"pergunta": pergunta, "resposta": resposta, "hora": datetime.now().strftime('%d/%m/%Y %H:%M:%S')}}}
         )
+    
 
     return jsonify({"resposta": resposta})
 
@@ -335,6 +341,13 @@ async def executar_api():
 
     # Gera a resposta usando a base do banco
     resposta_final = usar_openai_com_base_no_banco(mensagem)
+    
+    # Salva a resposta com IA e pergunta no banco
+    perguntas_respostas_collection.insert_one({
+        "usuario": "OPENAI",
+        "pergunta": mensagem,
+        "resposta": resposta_final,
+    })
 
     # Salva a conversa no banco
     conversas_collection.update_one(
