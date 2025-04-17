@@ -238,17 +238,36 @@ def chat():
     return render_template('chat.html', mensagens=mensagens)
 
 
+import openai
+
 @app.route('/upload_imagem', methods=['POST'])
 def upload_imagem():
-    arquivo_imagem = request.files['imagem']  # A imagem será enviada com o nome 'imagem'
-    
-    # Converter a imagem para base64
-    imagem_base64 = base64.b64encode(arquivo_imagem.read()).decode('utf-8')
-    
-    # Chamar a função para processar a imagem
-    resposta = processar_imagem_com_ia(imagem_base64)
-    
-    return jsonify({"resposta": resposta})
+    imagem = request.files['imagem']
+    if imagem:
+        caminho = os.path.join('static/uploads', imagem.filename)
+        imagem.save(caminho)
+        imagem_url = url_for('static', filename=f'uploads/{imagem.filename}')
+
+        # Enviando a imagem para a OpenAI
+        with open(caminho, 'rb') as f:
+            resposta = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "user", "content": [
+                        {"type": "text", "text": "Descreva o que vê nesta imagem:"},
+                        {"type": "image_url", "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64.b64encode(f.read()).decode()}"
+                        }}
+                    ]}
+                ],
+                max_tokens=500,
+            )
+        
+        resposta_ia = resposta.choices[0].message['content']
+        return render_template('chat.html', imagem_url=imagem_url, resposta=resposta_ia)
+
+    return redirect(url_for('chat'))
+
 
 
 @app.route('/perguntar', methods=['POST'])
