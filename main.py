@@ -25,7 +25,7 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 
 mail = Mail(app)
-s = URLSafeTimedSerializer(app.secret_key)
+token = URLSafeTimedSerializer(app.secret_key)
 
 # MongoDB
 client = MongoClient(os.getenv("MONGO_URI"))
@@ -37,11 +37,13 @@ perguntas_respostas_collection = db['perguntas_respostas']
 print("Testando conexão com MongoDB...")
 print(perguntas_respostas_collection.count_documents({}), "documentos encontrados.")
 
+# ______________________________________________________________________________________________________________________________________________________________
+
+
 # Exemplo básico de memória (em dicionário, por enquanto)
 memoria_curta = {}
 
-# Função para atualizar a memória (local do usuário)
-# Função para atualizar a memória curta do usuário
+# Funçoes 
 def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
     if usuario_id not in memoria_curta:
         memoria_curta[usuario_id] = deque(maxlen=limite)
@@ -124,9 +126,10 @@ def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
     except Exception as e:
         print(f"Erro ao obter ou salvar a resposta: {e}")
         return "Ocorreu um erro ao processar sua solicitação."
+    
+# ______________________________________________________________________________________________________________________________________________________________
 
-
-
+# Rotas
 @app.route('/')
 def index():
     return redirect(url_for('login'))
@@ -367,3 +370,4 @@ async def executar_api():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
