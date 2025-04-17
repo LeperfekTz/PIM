@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 import openai
 from collections import deque
+import base64
+import re
+
 
 # Carrega variáveis do .env
 load_dotenv()
@@ -25,7 +28,7 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 
 mail = Mail(app)
-token = URLSafeTimedSerializer(app.secret_key)
+s = URLSafeTimedSerializer(app.secret_key)
 
 # MongoDB
 client = MongoClient(os.getenv("MONGO_URI"))
@@ -61,16 +64,39 @@ def buscar_resposta_no_banco(mensagem):
     return None  # Retorna None se não encontrar nenhuma correspondência
 
 # Função que usa OpenAI para responder com base nos dados do banco
+def normalizar_pergunta(pergunta):
+    # Remove pontuação e deixa tudo minúsculo
+    return re.sub(r"[^\w\s]", "", pergunta).strip().lower()
+
 def usar_openai_com_base_no_banco(pergunta_usuario):
+    pergunta_normalizada = normalizar_pergunta(pergunta_usuario)
+
+    # Criar regex para buscar perguntas parecidas no banco (case insensitive)
+    regex = re.compile(f"^{re.escape(pergunta_normalizada)}$", re.IGNORECASE)
+
+    pergunta_existente = perguntas_respostas_collection.find_one({
+        "$expr": {
+            "$eq": [
+                { "$toLower": {
+                    "$replaceAll": { "input": "$pergunta", "find": ".", "replacement": "" }
+                }},
+                pergunta_normalizada
+            ]
+        }
+    })
+
+    if pergunta_existente:
+        return pergunta_existente["resposta"]
+
+    # Se não encontrar, continua com contexto e GPT
     documentos = list(perguntas_respostas_collection.find(
-        {"Customer_Issue": {"$exists": True}, "Tech_Response": {"$exists": True}}
+        {"pergunta": {"$exists": True}, "resposta": {"$exists": True}}
     ).limit(20))
 
     contexto = ""
     for doc in documentos:
-        pergunta = doc.get('Customer_Issue') or doc.get('pergunta')
-        resposta = doc.get('Tech_Response') or doc.get('resposta')
-
+        pergunta = doc.get('pergunta')
+        resposta = doc.get('resposta')
         if pergunta and resposta:
             contexto += f"Problema: {pergunta}\nIA: {resposta}\n"
 
@@ -86,7 +112,7 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
     """
 
     resposta = openai.ChatCompletion.create(
-        model="gpt-4",
+        model="gpt-4o",
         temperature=0,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -114,8 +140,8 @@ def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
         print(f"Inserindo no banco a pergunta: {pergunta_usuario} e a resposta: {resposta}")
         try:
             result = perguntas_respostas_collection.insert_one({
-                "Customer_Issue": pergunta_usuario,
-                "Tech_Response": resposta
+                "pergunta": pergunta_usuario,
+                "resposta": resposta
             })
             print(f"Resposta inserida com sucesso! ID: {result.inserted_id}")
         except Exception as e:
@@ -126,6 +152,35 @@ def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
     except Exception as e:
         print(f"Erro ao obter ou salvar a resposta: {e}")
         return "Ocorreu um erro ao processar sua solicitação."
+    
+def ler_imagem_base64(caminho_imagem):
+    with open(caminho_imagem, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+def processar_imagem_com_ia(imagem_base64):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "O que há nesta imagem?"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{imagem_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=300,
+        )
+        return response['choices'][0]['message']['content']
+    except Exception as e:
+        return f"Erro ao processar a imagem: {str(e)}"
+
     
 # ______________________________________________________________________________________________________________________________________________________________
 
@@ -181,6 +236,20 @@ def chat():
             })
 
     return render_template('chat.html', mensagens=mensagens)
+
+
+@app.route('/upload_imagem', methods=['POST'])
+def upload_imagem():
+    arquivo_imagem = request.files['imagem']  # A imagem será enviada com o nome 'imagem'
+    
+    # Converter a imagem para base64
+    imagem_base64 = base64.b64encode(arquivo_imagem.read()).decode('utf-8')
+    
+    # Chamar a função para processar a imagem
+    resposta = processar_imagem_com_ia(imagem_base64)
+    
+    return jsonify({"resposta": resposta})
+
 
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
@@ -331,6 +400,7 @@ def redefinir_senha(token):
 
     return render_template('reset_pass.html')
 
+
 @app.route('/executar-api', methods=['POST'])
 async def executar_api():
     if 'email' not in session or 'chat_id' not in session:
@@ -342,17 +412,35 @@ async def executar_api():
     if not mensagem:
         return jsonify({"resposta": "Por favor, envie uma mensagem válida."}), 400
 
-    # Gera a resposta usando a base do banco
-    resposta_final = usar_openai_com_base_no_banco(mensagem)
-    
-    # Salva a resposta com IA e pergunta no banco
-    perguntas_respostas_collection.insert_one({
-        "usuario": "OPENAI",
+    # Verifica se já existe uma resposta no banco para essa pergunta
+    resposta_existente = usar_openai_com_base_no_banco(mensagem)
+
+    # Se encontrou no banco, não salva novamente
+    if resposta_existente != "Não encontrei informações no banco para responder.":
+        resposta_final = resposta_existente
+    else:
+        # Se não encontrou, gera com a IA
+        prompt = f"Responda de forma clara e objetiva: {mensagem}"
+        completion = openai.ChatCompletion.create(
+            model="gpt-4o",
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        resposta_final = completion.choices[0].message["content"]
+
+        # Salva a nova pergunta e resposta no banco
+    pergunta_existe = perguntas_respostas_collection.find_one({
         "pergunta": mensagem,
-        "resposta": resposta_final,
+        "resposta": resposta_final  # opcional: remova se quiser salvar se a resposta for diferente
     })
 
-    # Salva a conversa no banco
+    if not pergunta_existe:
+        perguntas_respostas_collection.insert_one({
+            "usuario": "OPENAI",
+            "pergunta": mensagem,
+            "resposta": resposta_final,
+        })
+    # Salva a conversa completa no histórico do usuário
     conversas_collection.update_one(
         {"email": session['email'], "chat_id": session['chat_id']},
         {"$push": {
@@ -362,7 +450,7 @@ async def executar_api():
                 "hora": datetime.now().strftime('%d/%m/%Y %H:%M:%S')
             }
         }},
-        upsert=True  # cria o documento se não existir
+        upsert=True
     )
 
     return jsonify({"resposta": resposta_final})
