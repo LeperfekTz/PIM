@@ -8,15 +8,10 @@ from flask_mail import Mail, Message
 from dotenv import load_dotenv
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 import openai
-
-
-
-
+from collections import deque
 
 # Carrega variáveis do .env
 load_dotenv()
-
-#openai 
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
@@ -32,7 +27,6 @@ app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 mail = Mail(app)
 s = URLSafeTimedSerializer(app.secret_key)
 
-
 # MongoDB
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client['PIM']
@@ -46,29 +40,7 @@ print(perguntas_respostas_collection.count_documents({}), "documentos encontrado
 # Exemplo básico de memória (em dicionário, por enquanto)
 memoria_curta = {}
 
-def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
-    # Tenta buscar no banco
-    resposta = buscar_resposta_no_banco(pergunta_usuario)
-
-    if resposta:
-        atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
-        return resposta
-
-    # Se não encontrar, usa a OpenAI
-    resposta = usar_openai_com_base_no_banco(pergunta_usuario)
-
-    # Atualiza a memória curta com a nova resposta
-    atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
-
-    # (Opcional) Salva a nova pergunta/resposta no banco
-    perguntas_respostas_collection.insert_one({
-        "pergunta": pergunta_usuario,
-        "resposta": resposta
-    })
-
-    return resposta
-
-
+# Função para atualizar a memória (local do usuário)
 def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
     if usuario_id not in memoria_curta:
         memoria_curta[usuario_id] = deque(maxlen=limite)
@@ -78,13 +50,14 @@ def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
 def buscar_resposta_no_banco(mensagem):
     # Busca no banco de dados por perguntas semelhantes à mensagem do usuário
     resultado = perguntas_respostas_collection.find_one({
-        "pergunta": {"$regex": f"^{mensagem}$", "$options": "i"}  # Busca exata ou similar
+        "Customer_Issue": {"$regex": f"^{mensagem}$", "$options": "i"}  # Busca exata ou similar
     })
     
     if resultado:
-        return resultado.get("resposta")  # Retorna a resposta se encontrada
+        return resultado.get("Tech_Response")  # Retorna a resposta se encontrada
     return None  # Retorna None se não encontrar nenhuma correspondência
 
+# Função que usa OpenAI para responder com base nos dados do banco
 def usar_openai_com_base_no_banco(pergunta_usuario):
     documentos = list(perguntas_respostas_collection.find(
         {"Customer_Issue": {"$exists": True}, "Tech_Response": {"$exists": True}}
@@ -95,13 +68,13 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
         pergunta = doc.get('Customer_Issue')
         resposta = doc.get('Tech_Response')
         if pergunta and resposta:
-            contexto += f"Problema: {pergunta}\nResposta com AI: {resposta}\n"
+            contexto += f"Problema: {pergunta}\nIA: {resposta}\n"
 
     if not contexto:
         return "Não encontrei informações no banco para responder."
 
     prompt = f"""
-    voce é um assistente de suporte de TI em geral, não responda nada sobre outras coisas se for perguntado fale "não tenho resposta para isso...".
+    Responda com base apenas nas informações a seguir.
 
     {contexto}
 
@@ -116,11 +89,35 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
 
     return resposta.choices[0].message["content"]
 
-    
-# Rotas
-@app.route('/')
-def index():
-    return render_template('login.html')
+def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
+    try:
+        # Tenta buscar no banco
+        resposta = buscar_resposta_no_banco(pergunta_usuario)
+
+        if resposta:
+            atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
+            return resposta
+
+        # Se não encontrar, usa a OpenAI
+        resposta = usar_openai_com_base_no_banco(pergunta_usuario)
+        print(f"Resposta gerada pela OpenAI: {resposta}")  # Debug
+
+        # Atualiza a memória curta com a nova resposta
+        atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
+
+        # Salva a nova pergunta/resposta no banco de dados
+        perguntas_respostas_collection.insert_one({
+            "Customer_Issue": pergunta_usuario,
+            "Tech_Response": resposta
+        })
+
+        return resposta
+
+    except Exception as e:
+        print(f"Erro ao obter ou salvar a resposta: {e}")
+        return "Ocorreu um erro ao processar sua solicitação."
+
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -148,25 +145,34 @@ def login():
 
     return render_template('login.html')
 
-@app.route('/chat')
+@app.route('/chat', methods=["GET", "POST"])
 def chat():
     if 'email' not in session:
         return redirect(url_for('login'))
 
-    conversa = conversas_collection.find_one({
-        "email": session['email'],
-        "chat_id": session.get('chat_id')
-    })
-
     mensagens = []
-    if conversa and "mensagens" in conversa:
-        for item in conversa["mensagens"]:
-            mensagens.append({
-                "usuario": item.get("pergunta", ""),
-                "ia": item.get("resposta", "")
-            })
 
-    return render_template('chat.html', mensagens=mensagens)
+    # Verifica se existe um chat_id salvo para retomada
+    chat_id = session.get("chat_id")
+    if chat_id:
+        conversa = conversas_collection.find_one({
+            "chat_id": chat_id,
+            "email": session["email"]
+        })
+
+        if conversa:
+            for item in conversa.get("mensagens", []):
+                mensagens.append({
+                    "usuario": item.get("pergunta", "Pergunta não encontrada"),
+                    "ia": item.get("resposta", "Sem resposta da IA")
+                })
+    
+    # Se for POST (enviando nova pergunta), aí você continua sua lógica normal...
+    if request.method == "POST":
+        # aqui vai sua lógica de chat normalmente
+        pass
+
+    return render_template("chat.html", mensagens=mensagens)
 
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
@@ -174,6 +180,9 @@ def perguntar():
 
     if not pergunta:
         return jsonify({"resposta": "Por favor, envie uma pergunta válida."}), 400
+
+    usuario_id = session.get('email', 'anonimo')
+    resposta = obter_resposta(usuario_id, pergunta)
 
     # Salva no banco
     if 'chat_id' in session:
@@ -183,6 +192,7 @@ def perguntar():
         )
 
     return jsonify({"resposta": resposta})
+
 
 @app.route('/novo_chat', methods=['POST'])
 def novo_chat():
@@ -227,7 +237,6 @@ def historico():
 
     return render_template("historico.html", mensagens=mensagens)
 
-
 @app.route('/retomar/<string:chat_id>')
 def retomar_conversa(chat_id):
     if 'email' not in session:
@@ -239,11 +248,14 @@ def retomar_conversa(chat_id):
     })
 
     if not conversa:
-        flash("Conversa n o encontrada.")
+        flash("Conversa não encontrada.")
         return redirect(url_for('historico'))
 
-    novo_id = str(uuid.uuid4())
+    # Salva o chat_id atual na sessão
+    session['chat_id'] = chat_id
+
     return redirect(url_for('chat'))
+
 
 @app.route('/readme')
 def readme():
