@@ -46,6 +46,8 @@ print(perguntas_respostas_collection.count_documents({}), "documentos encontrado
 # Exemplo básico de memória (em dicionário, por enquanto)
 memoria_curta = {}
 
+
+
 # Funçoes 
 def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
     if usuario_id not in memoria_curta:

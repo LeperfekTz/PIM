@@ -27,8 +27,20 @@ body {
     height: 100vh;
 }
 
+@keyframes slideInLeft {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Contêiner principal com sidebar + chat */
 .main-container {
+    animation: slideInLeft 0.3s ease;
     display: flex;
     width: 100%;
     max-width: 90%;
