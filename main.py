@@ -188,6 +188,7 @@ def login():
 
     return render_template('login.html')
 
+
 @app.route('/chat', methods=['GET', 'POST'])
 def chat():
     if 'email' not in session:
@@ -218,7 +219,8 @@ def chat():
                 max_tokens=300
             )
 
-            resposta_ia = resposta['choices'][0]['message']['content']
+            resposta_ia = resposta['choices'][0]['message']['content'] if 'choices' in resposta else ''
+            print(f"Resposta IA: {resposta_ia}")
             hora_atual = datetime.now().strftime("%H:%M")
             chat_id = session.get('chat_id')
 
@@ -242,7 +244,14 @@ def chat():
                 upsert=True
             )
 
-    # Recupera histórico de mensagens
+            # 🟢 SE A REQUISIÇÃO VEIO VIA FETCH (JS)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'imagem_base64': imagem_base64,
+                    'resposta': resposta_ia
+                })
+
+    # 🟡 CASO PADRÃO: renderiza a página normalmente
     conversa = conversas_collection.find_one({
         "email": session['email'],
         "chat_id": session.get('chat_id')
@@ -264,6 +273,7 @@ def chat():
         imagem_base64=imagem_base64,
         resposta=resposta_ia
     )
+
 
 
 @app.route('/historico')
