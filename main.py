@@ -157,36 +157,6 @@ def ler_imagem_base64(caminho_imagem):
     with open(caminho_imagem, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-def processar_imagem_com_ia(imagem_base64):
-    try:
-        # Fazendo a requisição para a API do OpenAI com a imagem em base64
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",  # Modelo GPT-4 (ajuste conforme seu uso)
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "O que há nesta imagem?"},  # Texto que o usuário envia
-                        {
-                            "type": "image_url",  # Envio da imagem base64 para análise
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{imagem_base64}"  # A URL da imagem em base64
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=300,  # Limite de tokens na resposta
-        )
-        # Pegando a resposta do modelo
-        resposta_ia = response['choices'][0]['message']['content']
-        return resposta_ia  # Retorna a resposta da IA (análise da imagem)
-    
-    except Exception as e:
-        # Caso aconteça algum erro, retorna uma mensagem de erro
-        return f"Erro ao processar a imagem: {str(e)}"
-
-
 # Rotas
 @app.route('/')
 def index():
@@ -272,7 +242,6 @@ def chat():
                 upsert=True
             )
 
-
     # Recupera histórico de mensagens
     conversa = conversas_collection.find_one({
         "email": session['email'],
@@ -297,6 +266,29 @@ def chat():
     )
 
 
+@app.route('/historico')
+def historico():
+    if 'email' not in session:
+        return redirect(url_for('login'))
+
+    # Buscar TODAS as conversas do usuario
+    conversas = conversas_collection.find({"email": session["email"]})
+
+    mensagens = []
+    for conversa in conversas:
+        grupo = []  # Um grupo de mensagens = uma conversa
+        for item in conversa.get("mensagens", []):
+            grupo.append({
+                "usuario": item.get("pergunta", "Pergunta n o encontrada"),
+                "ia": item.get("resposta", "Sem resposta da IA")
+            })
+        if grupo:
+            mensagens.append({
+                "chat_id": str(conversa.get("chat_id")),
+                "mensagens": grupo
+            })
+
+    return render_template("historico.html", mensagens=mensagens)
 
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
@@ -338,29 +330,7 @@ def novo_chat():
 
     return redirect(url_for('chat'))
 
-@app.route('/historico')
-def historico():
-    if 'email' not in session:
-        return redirect(url_for('login'))
 
-    # Buscar TODAS as conversas do usuario
-    conversas = conversas_collection.find({"email": session["email"]})
-
-    mensagens = []
-    for conversa in conversas:
-        grupo = []  # Um grupo de mensagens = uma conversa
-        for item in conversa.get("mensagens", []):
-            grupo.append({
-                "usuario": item.get("pergunta", "Pergunta n o encontrada"),
-                "ia": item.get("resposta", "Sem resposta da IA")
-            })
-        if grupo:
-            mensagens.append({
-                "chat_id": str(conversa.get("chat_id")),
-                "mensagens": grupo
-            })
-
-    return render_template("historico.html", mensagens=mensagens)
 
 @app.route('/retomar/<string:chat_id>')
 def retomar_conversa(chat_id):

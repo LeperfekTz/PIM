@@ -36,25 +36,32 @@
       <div class="chat-container">
         <div class="chat-header">My Support AI</div>
 
-        <div class="chat-messages" id="resposta">
-          {% if mensagens %} {% for mensagem in mensagens %}
-          <div class="mensagem usuario">
-            <strong>Você:</strong> {{ mensagem.usuario }}
-          </div>
-          {% endfor %} {% endif %} {% if imagem_base64 %}
-          <div class="mensagem">
-            <p><strong>Usuário:</strong> Descreva o que vê nesta imagem:</p>
-            <img
-              src="data:image/jpeg;base64,{{ imagem_base64 }}"
-              alt="Imagem enviada"
-              style="max-width: 300px; max-height: 300px"
-            />
-          </div>
-          <div class="resposta-ia">
-          </div>
-          {% endif %} {% if resposta %}
-          <div class="mensagem bot"><strong>IA:</strong> {{ resposta }}</div>
-          {% endif %}
+       <div class="chat-messages" id="resposta">
+  {% if mensagens %}
+    {% for mensagem in mensagens %}
+      <div class="mensagem usuario">
+        <strong>Você:</strong>
+        {% if mensagem.usuario %}
+          {{ mensagem.usuario }}
+        {% else %}
+          Descreva o que vê nesta imagem:
+        {% endif %}
+      </div>
+
+      {% if mensagem.imagem_base64 %}
+        <div class="mensagem">
+          <img
+            src="data:image/jpeg;base64,{{ mensagem.imagem_base64 | safe }}"
+            alt="Imagem enviada"
+            style="max-width: 300px; max-height: 300px; border-radius: 8px; margin: 10px 0;"
+          />
+      {% endif %}
+
+      <div class="mensagem bot">
+        <strong>IA:</strong> {{ mensagem.ia }}
+      </div>
+    {% endfor %}
+  {% endif %}
 
           <!-- Animação: Lendo imagem -->
           <div id="status-upload" class="mensagem bot" style="display: none">
