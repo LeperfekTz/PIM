@@ -220,23 +220,22 @@ def login():
 
 @app.route('/chat', methods=['GET', 'POST'])
 def chat():
+    if 'email' not in session:
+        return redirect(url_for('login'))
+
+    imagem_base64 = ""
+    resposta_ia = ""
+
     if request.method == 'POST':
-        # Verifica se o usuário está logado
-        if 'email' not in session:
-            return redirect(url_for('login'))
-        
         imagem = request.files.get('imagem')
-        resposta_ia = ""
-        imagem_base64 = ""
 
         if imagem:
-            # Converte a imagem para base64
             imagem_bytes = imagem.read()
             imagem_base64 = base64.b64encode(imagem_bytes).decode('utf-8')
 
-            # Envia a imagem codificada em base64 para a OpenAI
+            # Envia a imagem para OpenAI
             resposta = openai.ChatCompletion.create(
-                model="gpt-4o",  # Ajuste conforme seu uso do modelo
+                model="gpt-4o",
                 messages=[{
                     "role": "user",
                     "content": [
@@ -246,33 +245,57 @@ def chat():
                         }}
                     ]
                 }],
-                max_tokens=300  # Limite de tokens para a resposta
+                max_tokens=300
             )
-            
-            # Pega a resposta da IA
+
             resposta_ia = resposta['choices'][0]['message']['content']
-            
-            # Atualiza o banco de dados (MongoDB) com a nova mensagem
             hora_atual = datetime.now().strftime("%H:%M")
             chat_id = session.get('chat_id')
+
+            # Salva no banco de dados
             conversas_collection.update_one(
                 {"email": session['email'], "chat_id": chat_id},
                 {
+                    "$setOnInsert": {
+                        "email": session['email'],
+                        "chat_id": chat_id,
+                        "criado_em": datetime.utcnow()
+                    },
                     "$push": {
                         "mensagens": {
                             "hora": hora_atual,
-                            "pergunta": f"data:image/jpeg;base64,{imagem_base64}",  # Salva a imagem em base64
-                            "resposta": resposta_ia  # Resposta da IA
+                            "pergunta": "Usuário enviou uma imagem.",
+                            "resposta": resposta_ia
                         }
                     }
                 },
                 upsert=True
             )
 
-        # Retorna ao template 'chat.html' com a imagem em base64 e a resposta
-        return render_template('chat.html', imagem_base64=imagem_base64, resposta=resposta_ia)
 
-    return render_template('chat.html')
+    # Recupera histórico de mensagens
+    conversa = conversas_collection.find_one({
+        "email": session['email'],
+        "chat_id": session.get('chat_id')
+    })
+
+    mensagens = []
+    if conversa and "mensagens" in conversa:
+        for item in conversa["mensagens"]:
+            pergunta = item.get("pergunta", "").strip()
+            resposta = item.get("resposta", "").strip()
+            mensagens.append({
+                "usuario": pergunta,
+                "ia": resposta
+            })
+
+    return render_template(
+        'chat.html',
+        mensagens=mensagens,
+        imagem_base64=imagem_base64,
+        resposta=resposta_ia
+    )
+
 
 
 @app.route('/perguntar', methods=['POST'])
