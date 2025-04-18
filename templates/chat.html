@@ -1,197 +1,224 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <title>My Chat</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}" />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-</head>
-<body>
-  <div class="main-container">
-    <div class="sidebar">
-      <h2>Menu</h2>
-      <ul>
-        <li>
-          <a href="{{ url_for('chat') }}" class="{{ 'active' if request.endpoint == 'chat' else '' }}">Início</a>
-        </li>
-        <li><a href="{{ url_for('historico') }}">Histórico</a></li>
-        <li><a href="{{ url_for('readme') }}">Informações</a></li>
-      </ul>
-    </div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>My Chat</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/chat.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="main-container">
+      <div class="sidebar">
+        <h2>Menu</h2>
+        <ul>
+          <li>
+            <a
+              href="{{ url_for('chat') }}"
+              class="{{ 'active' if request.endpoint == 'chat' else '' }}"
+              >Início</a
+            >
+          </li>
+          <li><a href="{{ url_for('historico') }}">Histórico</a></li>
+          <li><a href="{{ url_for('readme') }}">Informações</a></li>
+        </ul>
+      </div>
 
-    <div class="chat-container">
-      <div class="chat-header">My Support AI</div>
+      <div class="chat-container">
+        <div class="chat-header">My Support AI</div>
 
-      <div class="chat-messages" id="resposta">
-        {% if mensagens %}
-          {% for mensagem in mensagens %}
-            <div class="mensagem usuario">
-              <strong>Você:</strong> {{ mensagem.usuario }}
-            </div>
-            {% if mensagem.ia %}
-              <div class="mensagem bot">
-                <strong>IA:</strong> {{ mensagem.ia }}
-              </div>
-            {% endif %}
-          {% endfor %}
-        {% endif %}
-
-        {% if imagem_base64 %}
-          <div class="mensagem">
-            <img src="data:image/jpeg;base64,{{ imagem_base64 }}" alt="Imagem enviada" style="max-width: 300px; max-height: 300px" />
+        <div class="chat-messages" id="resposta">
+          {% if mensagens %} {% for mensagem in mensagens %}
+          <div class="mensagem usuario">
+            <strong>Você:</strong> {{ mensagem.usuario }}
           </div>
-          <div class="mensagem bot" id="resposta-ia" style="display: none;"></div>
-        {% endif %}
-      </div>
-
-      <div id="status-upload" class="mensagem bot" style="display: none">
-        IA: Lendo imagem
-      </div>
-
-      <div class="chat-input">
-        <div class="chat-controls">
-          <form action="{{ url_for('novo_chat') }}" method="post" style="display: inline">
-            <button type="submit" class="botao-novo-chat">Novo Chat</button>
-          </form>
+          {% if mensagem.ia %}
+          <div class="mensagem bot"><strong>IA:</strong> {{ mensagem.ia }}</div>
+          {% endif %} {% endfor %} {% endif %} {% if imagem_base64 %}
+          <div class="mensagem">
+            <img
+              src="data:image/jpeg;base64,{{ imagem_base64 }}"
+              alt="Imagem enviada"
+              style="max-width: 300px; max-height: 300px"
+            />
+          </div>
+          <div
+            class="mensagem bot"
+            id="resposta-ia"
+            style="display: none"
+          ></div>
+          {% endif %}
         </div>
 
-        <!-- Formulário apenas para estilo -->
-        <form id="upload-form" style="display: inline">
-          <label class="upload-label" for="file">Enviar Imagem</label>
-          <input
-            type="file"
-            name="imagem"
-            id="file"
-            style="display: none"
-          />
-        </form>
+        <div
+          class="mensagem bot lendo"
+          id="status-upload"
+          style="display: none"
+        >
+          IA: Lendo imagem...
+          <div class="barra-carregamento">
+            <div class="progresso"></div>
+          </div>
+        </div>
 
-        <input type="text" id="mensagem" placeholder="Digite sua mensagem..." />
-        <button onclick="enviarMensagem()">Enviar</button>
+        <div class="chat-input">
+          <div class="chat-controls">
+            <form
+              action="{{ url_for('novo_chat') }}"
+              method="post"
+              style="display: inline"
+            >
+              <button type="submit" class="botao-novo-chat">Novo Chat</button>
+            </form>
+          </div>
+
+          <!-- Formulário apenas para estilo -->
+          <form id="upload-form" style="display: inline">
+            <label class="upload-label" for="file">Enviar Imagem</label>
+            <input type="file" name="imagem" id="file" style="display: none" />
+          </form>
+
+          <input
+            type="text"
+            id="mensagem"
+            placeholder="Digite sua mensagem..."
+          />
+          <button onclick="enviarMensagem()">Enviar</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script>
-    function enviarMensagem() {
-      const mensagemInput = document.getElementById('mensagem');
-      const respostaDiv = document.getElementById('resposta');
-      const mensagem = mensagemInput.value.trim();
+    <script>
+      function enviarMensagem() {
+        const mensagemInput = document.getElementById('mensagem')
+        const respostaDiv = document.getElementById('resposta')
+        const mensagem = mensagemInput.value.trim()
 
-      if (!mensagem) return;
+        if (!mensagem) return
 
-      const msgUser = document.createElement('div');
-      msgUser.className = 'mensagem usuario';
-      msgUser.innerText = mensagem;
-      respostaDiv.appendChild(msgUser);
+        const msgUser = document.createElement('div')
+        msgUser.className = 'mensagem usuario'
+        msgUser.innerText = mensagem
+        respostaDiv.appendChild(msgUser)
 
-      const msgDigitando = document.createElement('div');
-      msgDigitando.className = 'mensagem bot digitando';
-      msgDigitando.innerText = 'IA está digitando...';
-      respostaDiv.appendChild(msgDigitando);
-      respostaDiv.scrollTop = respostaDiv.scrollHeight;
+        const msgDigitando = document.createElement('div')
+        msgDigitando.className = 'mensagem bot digitando'
+        msgDigitando.innerText = 'IA está digitando...'
+        respostaDiv.appendChild(msgDigitando)
+        respostaDiv.scrollTop = respostaDiv.scrollHeight
 
-      fetch('/executar-api', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagem }),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          msgDigitando.remove();
-          try {
-            const respostaFinal = data.resposta;
-            if (!respostaFinal) throw new Error('Formato inesperado da resposta');
-
-            const msgBot = document.createElement('div');
-            msgBot.className = 'mensagem bot';
-            msgBot.innerText = respostaFinal;
-            respostaDiv.appendChild(msgBot);
-          } catch (err) {
-            const erroMsg = document.createElement('div');
-            erroMsg.className = 'mensagem erro';
-            erroMsg.innerText = 'Erro ao interpretar a resposta.';
-            respostaDiv.appendChild(erroMsg);
-            console.error('Erro no processamento:', err, data);
-          }
-          respostaDiv.scrollTop = respostaDiv.scrollHeight;
+        fetch('/executar-api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensagem }),
         })
-        .catch((err) => {
-          msgDigitando.remove();
-          const erroMsg = document.createElement('div');
-          erroMsg.className = 'mensagem erro';
-          erroMsg.innerText = 'Erro na requisição.';
-          respostaDiv.appendChild(erroMsg);
-          console.error('Erro de rede:', err);
-        });
+          .then((response) => response.json())
+          .then((data) => {
+            msgDigitando.remove()
+            try {
+              const respostaFinal = data.resposta
+              if (!respostaFinal)
+                throw new Error('Formato inesperado da resposta')
 
-      mensagemInput.value = '';
-    }
+              const msgBot = document.createElement('div')
+              msgBot.className = 'mensagem bot'
+              msgBot.innerText = respostaFinal
+              respostaDiv.appendChild(msgBot)
+            } catch (err) {
+              const erroMsg = document.createElement('div')
+              erroMsg.className = 'mensagem erro'
+              erroMsg.innerText = 'Erro ao interpretar a resposta.'
+              respostaDiv.appendChild(erroMsg)
+              console.error('Erro no processamento:', err, data)
+            }
+            respostaDiv.scrollTop = respostaDiv.scrollHeight
+          })
+          .catch((err) => {
+            msgDigitando.remove()
+            const erroMsg = document.createElement('div')
+            erroMsg.className = 'mensagem erro'
+            erroMsg.innerText = 'Erro na requisição.'
+            respostaDiv.appendChild(erroMsg)
+            console.error('Erro de rede:', err)
+          })
 
-    document.getElementById('mensagem').addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        enviarMensagem();
+        mensagemInput.value = ''
       }
-    });
 
-    document.getElementById('file').addEventListener('change', function () {
-      const statusDiv = document.getElementById('status-upload');
-      const respostaDiv = document.getElementById('resposta');
-      const imagem = this.files[0];
-
-      if (!imagem) return;
-
-      statusDiv.classList.add('lendo');
-      statusDiv.style.display = 'block';
-
-      const formData = new FormData();
-      formData.append('imagem', imagem);
-
-      fetch('/chat', {
-        method: 'POST',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'  // <- detectado no backend
-        },
-        body: formData,
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          statusDiv.classList.remove('lendo');
-          statusDiv.style.display = 'none';
-
-          if (data.imagem_base64) {
-            const imagemDiv = document.createElement('div');
-            imagemDiv.className = 'mensagem';
-            const img = document.createElement('img');
-            img.src = `data:image/jpeg;base64,${data.imagem_base64}`;
-            img.alt = 'Imagem enviada';
-            img.style.maxWidth = '300px';
-            img.style.maxHeight = '300px';
-            imagemDiv.appendChild(img);
-            respostaDiv.appendChild(imagemDiv);
+      document
+        .getElementById('mensagem')
+        .addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            enviarMensagem()
           }
-
-          if (data.resposta) {
-            const msgBot = document.createElement('div');
-            msgBot.className = 'mensagem bot';
-            msgBot.innerText = data.resposta;
-            respostaDiv.appendChild(msgBot);
-          }
-
-          respostaDiv.scrollTop = respostaDiv.scrollHeight;
         })
-        .catch((err) => {
-          statusDiv.classList.remove('lendo');
-          statusDiv.style.display = 'none';
-          const erroMsg = document.createElement('div');
-          erroMsg.className = 'mensagem erro';
-          erroMsg.innerText = 'Erro ao enviar imagem.';
-          respostaDiv.appendChild(erroMsg);
-          console.error('Erro ao enviar imagem:', err);
-        });
-    });
-  </script>
-</body>
+
+      document.getElementById('file').addEventListener('change', function () {
+        const statusDiv = document.getElementById('status-upload')
+        const respostaDiv = document.getElementById('resposta')
+        const imagem = this.files[0]
+
+        if (!imagem) return
+
+        statusDiv.classList.add('lendo')
+        statusDiv.style.display = 'block'
+
+        const formData = new FormData()
+        formData.append('imagem', imagem)
+
+        fetch('/chat', {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest', // <- detectado no backend
+          },
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            statusDiv.classList.remove('lendo')
+            statusDiv.style.display = 'none'
+
+            if (data.imagem_base64) {
+              const imagemDiv = document.createElement('div')
+              imagemDiv.className = 'mensagem'
+              const img = document.createElement('img')
+              img.src = `data:image/jpeg;base64,${data.imagem_base64}`
+              img.alt = 'Imagem enviada'
+              img.style.maxWidth = '300px'
+              img.style.maxHeight = '300px'
+              imagemDiv.appendChild(img)
+              respostaDiv.appendChild(imagemDiv)
+            }
+
+            if (data.resposta) {
+              const msgBot = document.createElement('div')
+              msgBot.className = 'mensagem bot'
+              msgBot.innerText = data.resposta
+              respostaDiv.appendChild(msgBot)
+            }
+
+            respostaDiv.scrollTop = respostaDiv.scrollHeight
+          })
+          .catch((err) => {
+            statusDiv.classList.remove('lendo')
+            statusDiv.style.display = 'none'
+            const erroMsg = document.createElement('div')
+            erroMsg.className = 'mensagem erro'
+            erroMsg.innerText = 'Erro ao enviar imagem.'
+            respostaDiv.appendChild(erroMsg)
+            console.error('Erro ao enviar imagem:', err)
+          })
+      })
+    </script>
+  </body>
 </html>
