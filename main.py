@@ -12,7 +12,6 @@ from collections import deque
 import base64
 import re
 
-
 # Carrega variáveis do .env
 load_dotenv()
 
@@ -41,7 +40,6 @@ print("Testando conexão com MongoDB...")
 print(perguntas_respostas_collection.count_documents({}), "documentos encontrados.")
 
 # ______________________________________________________________________________________________________________________________________________________________
-
 
 # Exemplo básico de memória (em dicionário, por enquanto)
 memoria_curta = {}
