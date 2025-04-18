@@ -108,7 +108,9 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
 
     {contexto}
 
-    Pergunta do usuário: {pergunta_usuario}
+    Pergunta do usuário: {pergunta_usuario},
+
+    Se nao achar a resposta no banco de dados, respondendo com base na inforamçao da web.
     """
 
     resposta = openai.ChatCompletion.create(
@@ -244,14 +246,12 @@ def chat():
                 upsert=True
             )
 
-            # 🟢 SE A REQUISIÇÃO VEIO VIA FETCH (JS)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
                     'imagem_base64': imagem_base64,
                     'resposta': resposta_ia
                 })
 
-    # 🟡 CASO PADRÃO: renderiza a página normalmente
     conversa = conversas_collection.find_one({
         "email": session['email'],
         "chat_id": session.get('chat_id')
