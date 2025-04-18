@@ -42,10 +42,16 @@
             <strong>Você:</strong> {{ mensagem.usuario }}
           </div>
           <div class="mensagem bot"><strong>IA:</strong> {{ mensagem.ia }}</div>
-          {% endfor %} {% endif %} {% if imagem_url %}
-          <div class="mensagem imagem">
-            <p><strong>Você:</strong> Enviou esta imagem:</p>
-            <img src="{{ imagem_url }}" alt="Imagem enviada" width="300" />
+          {% endfor %} {% endif %} {% if imagem_base64 %}
+          <div class="mensagem">
+            <p><strong>Usuário:</strong> Descreva o que vê nesta imagem:</p>
+            <img
+              src="data:image/jpeg;base64,{{ imagem_base64 }}"
+              alt="Imagem enviada"
+              style="max-width: 300px; max-height: 300px"
+            />
+          </div>
+          <div class="resposta-ia">
           </div>
           {% endif %} {% if resposta %}
           <div class="mensagem bot"><strong>IA:</strong> {{ resposta }}</div>
@@ -71,7 +77,7 @@
           <!-- Formulário de imagem com envio automático -->
           <form
             id="upload-form"
-            action="/upload_imagem"
+            action="/chat"
             method="POST"
             enctype="multipart/form-data"
             style="display: inline"
@@ -174,15 +180,14 @@
     </script>
     <script>
       window.addEventListener('DOMContentLoaded', async () => {
-        const res = await fetch("/api/conversas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data = await res.json();
-        localStorage.setItem("idConversa", data._id); // salva o ID da conversa no localStorage (ou onde preferir)
-        console.log("Nova conversa criada:", data);
-      });
+        const res = await fetch('/api/conversas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        const data = await res.json()
+        localStorage.setItem('idConversa', data._id) // salva o ID da conversa no localStorage (ou onde preferir)
+        console.log('Nova conversa criada:', data)
+      })
     </script>
   </body>
 </html>
-

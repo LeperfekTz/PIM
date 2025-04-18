@@ -159,30 +159,33 @@ def ler_imagem_base64(caminho_imagem):
 
 def processar_imagem_com_ia(imagem_base64):
     try:
+        # Fazendo a requisição para a API do OpenAI com a imagem em base64
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model="gpt-4o",  # Modelo GPT-4 (ajuste conforme seu uso)
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "O que há nesta imagem?"},
+                        {"type": "text", "text": "O que há nesta imagem?"},  # Texto que o usuário envia
                         {
-                            "type": "image_url",
+                            "type": "image_url",  # Envio da imagem base64 para análise
                             "image_url": {
-                                "url": f"data:image/jpeg;base64,{imagem_base64}"
+                                "url": f"data:image/jpeg;base64,{imagem_base64}"  # A URL da imagem em base64
                             }
                         }
                     ]
                 }
             ],
-            max_tokens=300,
+            max_tokens=300,  # Limite de tokens na resposta
         )
-        return response['choices'][0]['message']['content']
+        # Pegando a resposta do modelo
+        resposta_ia = response['choices'][0]['message']['content']
+        return resposta_ia  # Retorna a resposta da IA (análise da imagem)
+    
     except Exception as e:
+        # Caso aconteça algum erro, retorna uma mensagem de erro
         return f"Erro ao processar a imagem: {str(e)}"
 
-    
-# ______________________________________________________________________________________________________________________________________________________________
 
 # Rotas
 @app.route('/')
@@ -215,59 +218,61 @@ def login():
 
     return render_template('login.html')
 
-@app.route('/chat')
+@app.route('/chat', methods=['GET', 'POST'])
 def chat():
-    if 'email' not in session:
-        return redirect(url_for('login'))
+    if request.method == 'POST':
+        # Verifica se o usuário está logado
+        if 'email' not in session:
+            return redirect(url_for('login'))
+        
+        imagem = request.files.get('imagem')
+        resposta_ia = ""
+        imagem_base64 = ""
 
-    conversa = conversas_collection.find_one({
-        "email": session['email'],
-        "chat_id": session.get('chat_id')
-    })
+        if imagem:
+            # Converte a imagem para base64
+            imagem_bytes = imagem.read()
+            imagem_base64 = base64.b64encode(imagem_bytes).decode('utf-8')
 
-    mensagens = []
-    if conversa and "mensagens" in conversa:
-        for item in conversa["mensagens"]:
-            pergunta = item.get("pergunta", "").strip()
-            resposta = item.get("resposta", "").strip()
-            mensagens.append({
-                "usuario": pergunta,
-                "ia": resposta
-            })
-
-    return render_template('chat.html', mensagens=mensagens)
-
-
-import openai
-
-@app.route('/upload_imagem', methods=['POST'])
-def upload_imagem():
-    imagem = request.files['imagem']
-    if imagem:
-        caminho = os.path.join('static/uploads', imagem.filename)
-        imagem.save(caminho)
-        imagem_url = url_for('static', filename=f'uploads/{imagem.filename}')
-
-        # Enviando a imagem para a OpenAI
-        with open(caminho, 'rb') as f:
+            # Envia a imagem codificada em base64 para a OpenAI
             resposta = openai.ChatCompletion.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "user", "content": [
+                model="gpt-4o",  # Ajuste conforme seu uso do modelo
+                messages=[{
+                    "role": "user",
+                    "content": [
                         {"type": "text", "text": "Descreva o que vê nesta imagem:"},
                         {"type": "image_url", "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64.b64encode(f.read()).decode()}"
+                            "url": f"data:image/jpeg;base64,{imagem_base64}"
                         }}
-                    ]}
-                ],
-                max_tokens=500,
+                    ]
+                }],
+                max_tokens=300  # Limite de tokens para a resposta
             )
-        
-        resposta_ia = resposta.choices[0].message['content']
-        return render_template('chat.html', imagem_url=imagem_url, resposta=resposta_ia)
+            
+            # Pega a resposta da IA
+            resposta_ia = resposta['choices'][0]['message']['content']
+            
+            # Atualiza o banco de dados (MongoDB) com a nova mensagem
+            hora_atual = datetime.now().strftime("%H:%M")
+            chat_id = session.get('chat_id')
+            conversas_collection.update_one(
+                {"email": session['email'], "chat_id": chat_id},
+                {
+                    "$push": {
+                        "mensagens": {
+                            "hora": hora_atual,
+                            "pergunta": f"data:image/jpeg;base64,{imagem_base64}",  # Salva a imagem em base64
+                            "resposta": resposta_ia  # Resposta da IA
+                        }
+                    }
+                },
+                upsert=True
+            )
 
-    return redirect(url_for('chat'))
+        # Retorna ao template 'chat.html' com a imagem em base64 e a resposta
+        return render_template('chat.html', imagem_base64=imagem_base64, resposta=resposta_ia)
 
+    return render_template('chat.html')
 
 
 @app.route('/perguntar', methods=['POST'])
