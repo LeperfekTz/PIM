@@ -42,6 +42,9 @@ print(perguntas_respostas_collection.count_documents({}), "documentos encontrado
 # ______________________________________________________________________________________________________________________________________________________________
 
 # Exemplo básico de memória (em dicionário, por enquanto)
+# Isso deve ser executado apenas uma vez na inicialização do sistema
+perguntas_respostas_collection.create_index([("Customer_Issue", "text")])
+
 memoria_curta = {}
 
 
@@ -55,10 +58,11 @@ def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
 # Função para buscar perguntas e respostas no MongoDB
 def buscar_resposta_no_banco(mensagem):
     # Busca no banco de dados por perguntas semelhantes à mensagem do usuário
+
     resultado = perguntas_respostas_collection.find_one({
-        "Customer_Issue": {"$regex": f"^{mensagem}$", "$options": "i"}  # Busca exata ou similar
+        "$text": {"$search": mensagem}
     })
-    
+
     if resultado:
         return resultado.get("Tech_Response")  # Retorna a resposta se encontrada
     return None  # Retorna None se não encontrar nenhuma correspondência
@@ -104,7 +108,7 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
         return "Não encontrei informações no banco para responder."
 
     prompt = f"""
-    Responda com base apenas nas informações a seguir.
+    Responda com base apenas nas informações a seguir, converse com o usuario para entender a situação.
 
     {contexto}
 
@@ -124,36 +128,42 @@ def usar_openai_com_base_no_banco(pergunta_usuario):
 # Função para obter a resposta (primeiro tenta buscar no banco, senão usa o OpenAI)
 def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
     try:
-        # Tenta buscar no banco
         resposta = buscar_resposta_no_banco(pergunta_usuario)
-
         if resposta:
             atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
             return resposta
 
-        # Se não encontrar, usa a OpenAI
-        resposta = usar_openai_com_base_no_banco(pergunta_usuario)
-        print(f"Resposta gerada pela OpenAI: {resposta}")  # Debug
+        # Obter contexto da memória curta
+        historico = memoria_curta.get(usuario_id, [])
+        mensagens = [{"role": "system", "content": "Você é um assistente que responde com base em perguntas e respostas anteriores."}]
+        
+        for par in historico:
+            mensagens.append({"role": "user", "content": par["pergunta"]})
+            mensagens.append({"role": "assistant", "content": par["resposta"]})
 
-        # Atualiza a memória curta com a nova resposta
-        atualizar_memoria(usuario_id, pergunta_usuario, resposta, limite=limite_memoria)
+        # Adiciona nova pergunta
+        mensagens.append({"role": "user", "content": pergunta_usuario})
 
-        # Verificando os valores antes de inserir no banco
-        print(f"Inserindo no banco a pergunta: {pergunta_usuario} e a resposta: {resposta}")
-        try:
-            result = perguntas_respostas_collection.insert_one({
-                "pergunta": pergunta_usuario,
-                "resposta": resposta
-            })
-            print(f"Resposta inserida com sucesso! ID: {result.inserted_id}")
-        except Exception as e:
-            print(f"Erro ao salvar pergunta e resposta no banco: {e}")
+        resposta = openai.ChatCompletion.create(
+            model="gpt-4o",
+            temperature=0.2,
+            messages=mensagens
+        )
 
-        return resposta
+        conteudo_resposta = resposta.choices[0].message["content"]
+        atualizar_memoria(usuario_id, pergunta_usuario, conteudo_resposta, limite=limite_memoria)
+
+        perguntas_respostas_collection.insert_one({
+            "pergunta": pergunta_usuario,
+            "resposta": conteudo_resposta
+        })
+
+        return conteudo_resposta
 
     except Exception as e:
-        print(f"Erro ao obter ou salvar a resposta: {e}")
+        print(f"Erro ao obter resposta: {e}")
         return "Ocorreu um erro ao processar sua solicitação."
+
     
 def ler_imagem_base64(caminho_imagem):
     with open(caminho_imagem, "rb") as image_file:
