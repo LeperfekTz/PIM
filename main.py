@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from pymongo import MongoClient
@@ -11,6 +11,8 @@ import openai
 from collections import deque
 import base64
 import re
+from collections import defaultdict
+
 
 # Carrega variáveis do .env
 load_dotenv()
@@ -45,15 +47,18 @@ print(perguntas_respostas_collection.count_documents({}), "documentos encontrado
 # Isso deve ser executado apenas uma vez na inicialização do sistema
 perguntas_respostas_collection.create_index([("Customer_Issue", "text")])
 
-memoria_curta = {}
+memoria_curta = defaultdict(list)
 
 
 
 # Funçoes 
-def atualizar_memoria(usuario_id, pergunta, resposta, limite=5):
-    if usuario_id not in memoria_curta:
-        memoria_curta[usuario_id] = deque(maxlen=limite)
-    memoria_curta[usuario_id].append({"pergunta": pergunta, "resposta": resposta})
+def atualizar_memoria(email, pergunta, resposta):
+    memoria_curta[email].append({"role": "user", "content": pergunta})
+    memoria_curta[email].append({"role": "assistant", "content": resposta})
+
+    # Limita o histórico para evitar excesso de tokens (ex: últimos 10 pares)
+    if len(memoria_curta[email]) > 20:
+        memoria_curta[email] = memoria_curta[email][-20:]
 
 # Função para buscar perguntas e respostas no MongoDB
 def buscar_resposta_no_banco(mensagem):
@@ -168,6 +173,7 @@ def obter_resposta(usuario_id, pergunta_usuario, limite_memoria=5):
 def ler_imagem_base64(caminho_imagem):
     with open(caminho_imagem, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
+    
 
 # Rotas
 @app.route('/')
@@ -209,9 +215,9 @@ def chat():
     imagem_base64 = ""
     resposta_ia = ""
 
-    if request.method == 'POST':
+    # Processamento da imagem (caso o usuário envie uma)
+    if request.method == 'POST' and request.files.get('imagem'):
         imagem = request.files.get('imagem')
-
         if imagem:
             imagem_bytes = imagem.read()
             imagem_base64 = base64.b64encode(imagem_bytes).decode('utf-8')
@@ -232,7 +238,6 @@ def chat():
             )
 
             resposta_ia = resposta['choices'][0]['message']['content'] if 'choices' in resposta else ''
-            print(f"Resposta IA: {resposta_ia}")
             hora_atual = datetime.now().strftime("%H:%M")
             chat_id = session.get('chat_id')
 
@@ -243,7 +248,7 @@ def chat():
                     "$setOnInsert": {
                         "email": session['email'],
                         "chat_id": chat_id,
-                        "criado_em": datetime.utcnow()
+                        "criado_em": datetime.now(timezone.utc)
                     },
                     "$push": {
                         "mensagens": {
@@ -256,12 +261,50 @@ def chat():
                 upsert=True
             )
 
+            # Atualiza a memória curta
+            atualizar_memoria(session['email'], "Usuário enviou uma imagem.", resposta_ia)
+
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
                     'imagem_base64': imagem_base64,
                     'resposta': resposta_ia
                 })
 
+    # Processamento da mensagem de texto (caso o usuário envie uma pergunta)
+    if request.form.get("mensagem_texto"):
+        pergunta = request.form["mensagem_texto"]
+
+        resposta = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=memoria_curta[session['email']] + [
+                {"role": "user", "content": pergunta}
+            ],
+            max_tokens=300
+        )
+
+        resposta_ia = resposta['choices'][0]['message']['content']
+
+        # Atualiza a memória curta com a pergunta e a resposta da IA
+        atualizar_memoria(session['email'], pergunta, resposta_ia)
+
+        # Salva a mensagem no banco de dados
+        hora_atual = datetime.now().strftime("%H:%M")
+        chat_id = session.get('chat_id')
+
+        conversas_collection.update_one(
+            {"email": session['email'], "chat_id": chat_id},
+            {
+                "$push": {
+                    "mensagens": {
+                        "hora": hora_atual,
+                        "pergunta": pergunta,
+                        "resposta": resposta_ia
+                    }
+                }
+            }
+        )
+
+    # Exibe o histórico de conversa
     conversa = conversas_collection.find_one({
         "email": session['email'],
         "chat_id": session.get('chat_id')
@@ -335,6 +378,10 @@ def perguntar():
 def novo_chat():
     novo_id = str(uuid.uuid4())
     session['chat_id'] = novo_id
+
+    if 'email' in session:
+        memoria_curta[session['email']] = []
+
 
     # Cria novo documento de conversa no MongoDB
     conversas_collection.insert_one({
@@ -438,6 +485,7 @@ def redefinir_senha(token):
     return render_template('reset_pass.html')
 
 
+
 @app.route('/executar-api', methods=['POST'])
 async def executar_api():
     if 'email' not in session or 'chat_id' not in session:
@@ -449,14 +497,15 @@ async def executar_api():
     if not mensagem:
         return jsonify({"resposta": "Por favor, envie uma mensagem válida."}), 400
 
-    # Verifica se já existe uma resposta no banco para essa pergunta
-    resposta_existente = usar_openai_com_base_no_banco(mensagem)
+    # 🔧 Normaliza a mensagem
+    mensagem_normalizada = normalizar_pergunta(mensagem)
 
-    # Se encontrou no banco, não salva novamente
+    # Verifica se já existe uma resposta no banco para essa pergunta
+    resposta_existente = usar_openai_com_base_no_banco(mensagem_normalizada)    
+
     if resposta_existente != "Não encontrei informações no banco para responder.":
         resposta_final = resposta_existente
     else:
-        # Se não encontrou, gera com a IA
         prompt = f"Responda de forma clara e objetiva: {mensagem}"
         completion = openai.ChatCompletion.create(
             model="gpt-4o",
@@ -465,19 +514,20 @@ async def executar_api():
         )
         resposta_final = completion.choices[0].message["content"]
 
-        # Salva a nova pergunta e resposta no banco
+    # Verifica se já existe antes de salvar
     pergunta_existe = perguntas_respostas_collection.find_one({
-        "pergunta": mensagem,
-        "resposta": resposta_final  # opcional: remova se quiser salvar se a resposta for diferente
+        "pergunta": mensagem_normalizada,
+        "resposta": resposta_final
     })
 
     if not pergunta_existe:
         perguntas_respostas_collection.insert_one({
             "usuario": "OPENAI",
-            "pergunta": mensagem,
+            "pergunta": mensagem_normalizada,
             "resposta": resposta_final,
         })
-    # Salva a conversa completa no histórico do usuário
+
+    # Salva no histórico de conversas do usuário
     conversas_collection.update_one(
         {"email": session['email'], "chat_id": session['chat_id']},
         {"$push": {

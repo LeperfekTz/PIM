@@ -95,6 +95,22 @@
           />
           <button onclick="enviarMensagem()">Enviar</button>
         </div>
+
+        {% if feedback %}
+        <div class="feedback-form">
+          <h3>Por favor, nos dê seu feedback</h3>
+          <form action="{{ url_for('chat') }}" method="post">
+            <div class="mb-3">
+              <label for="feedback_text" class="form-label">Como você avalia o atendimento?</label>
+              <textarea id="feedback_text" name="feedback" class="form-control" rows="3" required></textarea>
+            </div>
+            <div class="mb-3">
+              <button type="submit" class="btn btn-primary">Enviar Feedback</button>
+            </div>
+          </form>
+        </div>
+        {% endif %}
+
       </div>
     </div>
 
@@ -223,3 +239,4 @@
     </script>
   </body>
 </html>
+
